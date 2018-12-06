@@ -73,7 +73,7 @@ impl ExternalSorter {
 
         // Write any items left in buffer, but only if we had at least 1 segment writen.
         // Otherwise we use the buffer itself to iterate from memory
-        let pass_through_queue = if buffer.len() > 0 && segments.len() > 0 {
+        let pass_through_queue = if !buffer.is_empty() && !segments.is_empty() {
             Self::sort_and_write_segment(&sort_dir, &mut segments, &mut buffer)?;
             None
         } else {
@@ -146,10 +146,7 @@ impl<T: Sortable<T>> SortedIterator<T> {
             .map(|file| Self::read_item(file))
             .collect();
 
-        let segments = segments
-            .into_iter()
-            .map(|file| BufReader::new(file))
-            .collect();
+        let segments = segments.into_iter().map(BufReader::new).collect();
 
         Ok(SortedIterator {
             _tempdir: tempdir,
@@ -192,7 +189,7 @@ impl<T: Sortable<T>> Iterator for SortedIterator<T> {
 
         match smallest_idx {
             Some(idx) => {
-                let file = self.segments.get_mut(idx).unwrap();
+                let file = &mut self.segments[idx];
                 let value = self.next_values[idx].take().unwrap();
                 self.next_values[idx] = Self::read_item(file);
                 Some(value)
