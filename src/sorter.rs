@@ -81,7 +81,7 @@ impl ExternalSorter {
             Some(VecDeque::from(buffer))
         };
 
-        Ok(SortedIterator::new(tempdir, pass_through_queue, segments))
+        SortedIterator::new(tempdir, pass_through_queue, segments)
     }
 
     fn sort_and_write_segment<T>(
@@ -136,25 +136,27 @@ impl<T: Sortable<T>> SortedIterator<T> {
         tempdir: Option<tempdir::TempDir>,
         pass_through_queue: Option<VecDeque<T>>,
         mut segments: Vec<File>,
-    ) -> SortedIterator<T> {
+    ) -> Result<SortedIterator<T>, Error> {
+        for segment in &mut segments {
+            segment.seek(SeekFrom::Start(0))?;
+        }
+
         let next_values = segments
             .iter_mut()
-            .map(|file| {
-                file.seek(SeekFrom::Start(0)).unwrap();
-                Self::read_item(file)
-            }).collect();
+            .map(|file| Self::read_item(file))
+            .collect();
 
         let segments = segments
             .into_iter()
             .map(|file| BufReader::new(file))
             .collect();
 
-        SortedIterator {
+        Ok(SortedIterator {
             _tempdir: tempdir,
             pass_through_queue,
             segments,
             next_values,
-        }
+        })
     }
 
     fn read_item(file: &mut Read) -> Option<T> {
