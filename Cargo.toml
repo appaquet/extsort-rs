@@ -1,0 +1,15 @@
+[package]
+name = "extsort"
+description = "External sorting (i.e. on disk sorting) capability on arbitrarily sized iterator"
+version = "0.1.1"
+authors = ["Andre-Philippe Paquet <appaquet@gmail.com>"]
+license = "Apache-2.0"
+readme = "README.md"
+keywords = ["sorting", "sort", "external"]
+repository = "https://github.com/appaquet/extsort-rs"
+
+[dependencies]
+tempdir = "0.3"
+
+[dev-dependencies]
+byteorder = "1.2.7"
