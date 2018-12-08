@@ -53,4 +53,4 @@
 extern crate tempdir;
 
 pub mod sorter;
-pub use sorter::{ExternalSorter, Sortable, SortedIterator};
+pub use crate::sorter::{ExternalSorter, Sortable, SortedIterator};
