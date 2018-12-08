@@ -43,7 +43,7 @@ impl ExternalSorter {
     }
 
     /// Sort a given iterator, returning a new iterator with items
-    pub fn sort<T, I>(&self, mut iterator: I) -> Result<SortedIterator<T>, Error>
+    pub fn sort<T, I>(&self, iterator: I) -> Result<SortedIterator<T>, Error>
     where
         T: Sortable<T>,
         I: Iterator<Item = T>,
@@ -56,32 +56,27 @@ impl ExternalSorter {
             tempdir.as_ref().unwrap().path().to_path_buf()
         };
 
-        let mut segments: Vec<File> = Vec::new();
+        let mut segments_file: Vec<File> = Vec::new();
         let mut buffer: Vec<T> = Vec::new();
-        loop {
-            let next_item = iterator.next();
-            if next_item.is_none() {
-                break;
-            }
-
-            buffer.push(next_item.unwrap());
+        for next_item in iterator {
+            buffer.push(next_item);
             if buffer.len() > self.max_size {
-                Self::sort_and_write_segment(&sort_dir, &mut segments, &mut buffer)?;
+                Self::sort_and_write_segment(&sort_dir, &mut segments_file, &mut buffer)?;
                 buffer.clear();
             }
         }
 
         // Write any items left in buffer, but only if we had at least 1 segment writen.
         // Otherwise we use the buffer itself to iterate from memory
-        let pass_through_queue = if !buffer.is_empty() && !segments.is_empty() {
-            Self::sort_and_write_segment(&sort_dir, &mut segments, &mut buffer)?;
+        let pass_through_queue = if !buffer.is_empty() && !segments_file.is_empty() {
+            Self::sort_and_write_segment(&sort_dir, &mut segments_file, &mut buffer)?;
             None
         } else {
             buffer.sort();
             Some(VecDeque::from(buffer))
         };
 
-        SortedIterator::new(tempdir, pass_through_queue, segments)
+        SortedIterator::new(tempdir, pass_through_queue, segments_file)
     }
 
     fn sort_and_write_segment<T>(
@@ -95,13 +90,13 @@ impl ExternalSorter {
         buffer.sort();
 
         let segment_path = sort_dir.join(format!("{}", segments.len()));
-        let file = OpenOptions::new()
+        let segment_file = OpenOptions::new()
             .create(true)
             .truncate(true)
             .read(true)
             .write(true)
             .open(&segment_path)?;
-        let mut buf_writer = BufWriter::new(file);
+        let mut buf_writer = BufWriter::new(segment_file);
         for item in buffer {
             <T as Sortable<T>>::encode(item, &mut buf_writer);
         }
@@ -127,7 +122,7 @@ pub trait Sortable<T>: Eq + Ord {
 pub struct SortedIterator<T: Sortable<T>> {
     _tempdir: Option<tempdir::TempDir>,
     pass_through_queue: Option<VecDeque<T>>,
-    segments: Vec<BufReader<File>>,
+    segments_file: Vec<BufReader<File>>,
     next_values: Vec<Option<T>>,
 }
 
@@ -135,23 +130,23 @@ impl<T: Sortable<T>> SortedIterator<T> {
     fn new(
         tempdir: Option<tempdir::TempDir>,
         pass_through_queue: Option<VecDeque<T>>,
-        mut segments: Vec<File>,
+        mut segments_file: Vec<File>,
     ) -> Result<SortedIterator<T>, Error> {
-        for segment in &mut segments {
+        for segment in &mut segments_file {
             segment.seek(SeekFrom::Start(0))?;
         }
 
-        let next_values = segments
+        let next_values = segments_file
             .iter_mut()
             .map(|file| Self::read_item(file))
             .collect();
 
-        let segments = segments.into_iter().map(BufReader::new).collect();
+        let segments_file_buffered = segments_file.into_iter().map(BufReader::new).collect();
 
         Ok(SortedIterator {
             _tempdir: tempdir,
             pass_through_queue,
-            segments,
+            segments_file: segments_file_buffered,
             next_values,
         })
     }
@@ -174,7 +169,7 @@ impl<T: Sortable<T>> Iterator for SortedIterator<T> {
         let mut smallest_idx: Option<usize> = None;
         {
             let mut smallest: Option<&T> = None;
-            for idx in 0..self.segments.len() {
+            for idx in 0..self.segments_file.len() {
                 let next_value = self.next_values[idx].as_ref();
                 if next_value.is_none() {
                     continue;
@@ -187,15 +182,12 @@ impl<T: Sortable<T>> Iterator for SortedIterator<T> {
             }
         }
 
-        match smallest_idx {
-            Some(idx) => {
-                let file = &mut self.segments[idx];
-                let value = self.next_values[idx].take().unwrap();
-                self.next_values[idx] = Self::read_item(file);
-                Some(value)
-            }
-            None => None,
-        }
+        smallest_idx.map(|idx| {
+            let file = &mut self.segments_file[idx];
+            let value = self.next_values[idx].take().unwrap();
+            self.next_values[idx] = Self::read_item(file);
+            value
+        })
     }
 }
 
@@ -216,7 +208,7 @@ pub mod test {
         let sorted_iter = sorter.sort(data_rev.into_iter()).unwrap();
 
         // should not have used any segments (all in memory)
-        assert_eq!(sorted_iter.segments.len(), 0);
+        assert_eq!(sorted_iter.segments_file.len(), 0);
         let sorted_data: Vec<u32> = sorted_iter.collect();
 
         assert_eq!(data, sorted_data);
@@ -230,7 +222,7 @@ pub mod test {
 
         let data_rev: Vec<u32> = data.iter().rev().cloned().collect();
         let sorted_iter = sorter.sort(data_rev.into_iter()).unwrap();
-        assert_eq!(sorted_iter.segments.len(), 10);
+        assert_eq!(sorted_iter.segments_file.len(), 10);
 
         let sorted_data: Vec<u32> = sorted_iter.collect();
         assert_eq!(data, sorted_data);

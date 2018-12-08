@@ -56,7 +56,9 @@ mod tests {
     fn bench_ext_sort_1000(b: &mut Bencher) {
         let sorter = ExternalSorter::new();
         b.iter(|| {
-            let sorted_iter = sorter.sort((0..1000).map(MyStruct).into_iter().rev());
+            let sorted_iter = sorter
+                .sort((0..1000).map(MyStruct).into_iter().rev())
+                .unwrap();
             sorted_iter.count();
         })
     }
@@ -74,7 +76,9 @@ mod tests {
     fn bench_ext_sort_100_000(b: &mut Bencher) {
         let sorter = ExternalSorter::new();
         b.iter(|| {
-            let sorted_iter = sorter.sort((0..100_000).map(MyStruct).into_iter().rev());
+            let sorted_iter = sorter
+                .sort((0..100_000).map(MyStruct).into_iter().rev())
+                .unwrap();
             sorted_iter.count();
         })
     }
@@ -85,7 +89,9 @@ mod tests {
         sorter.set_max_size(100_000);
 
         b.iter(|| {
-            let sorted_iter = sorter.sort((0..1_000_000).map(MyStruct).into_iter().rev());
+            let sorted_iter = sorter
+                .sort((0..1_000_000).map(MyStruct).into_iter().rev())
+                .unwrap();
             sorted_iter.count();
         })
     }
