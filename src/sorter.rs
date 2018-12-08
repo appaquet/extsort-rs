@@ -49,19 +49,15 @@ impl ExternalSorter {
         I: Iterator<Item = T>,
     {
         let mut tempdir: Option<tempdir::TempDir> = None;
-        let sort_dir = if let Some(ref sort_dir) = self.sort_dir {
-            sort_dir.to_path_buf()
-        } else {
-            tempdir = Some(tempdir::TempDir::new("sort")?);
-            tempdir.as_ref().unwrap().path().to_path_buf()
-        };
+        let mut sort_dir: Option<PathBuf> = None;
 
         let mut segments_file: Vec<File> = Vec::new();
         let mut buffer: Vec<T> = Vec::new();
         for next_item in iterator {
             buffer.push(next_item);
             if buffer.len() > self.max_size {
-                Self::sort_and_write_segment(&sort_dir, &mut segments_file, &mut buffer)?;
+                let sort_dir = self.lazy_create_dir(&mut tempdir, &mut sort_dir)?;
+                Self::sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer)?;
                 buffer.clear();
             }
         }
@@ -69,7 +65,8 @@ impl ExternalSorter {
         // Write any items left in buffer, but only if we had at least 1 segment writen.
         // Otherwise we use the buffer itself to iterate from memory
         let pass_through_queue = if !buffer.is_empty() && !segments_file.is_empty() {
-            Self::sort_and_write_segment(&sort_dir, &mut segments_file, &mut buffer)?;
+            let sort_dir = self.lazy_create_dir(&mut tempdir, &mut sort_dir)?;
+            Self::sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer)?;
             None
         } else {
             buffer.sort();
@@ -77,6 +74,27 @@ impl ExternalSorter {
         };
 
         SortedIterator::new(tempdir, pass_through_queue, segments_file)
+    }
+
+    /// We only want to create directory if it's needed (aka if the dataset doesn't fit in memory)
+    /// to prevent filesystem latency
+    fn lazy_create_dir<'a>(
+        &self,
+        tempdir: &mut Option<tempdir::TempDir>,
+        sort_dir: &'a mut Option<PathBuf>,
+    ) -> Result<&'a Path, Error> {
+        if let Some(sort_dir) = sort_dir {
+            return Ok(sort_dir);
+        }
+
+        *sort_dir = if let Some(ref sort_dir) = self.sort_dir {
+            Some(sort_dir.to_path_buf())
+        } else {
+            *tempdir = Some(tempdir::TempDir::new("sort")?);
+            Some(tempdir.as_ref().unwrap().path().to_path_buf())
+        };
+
+        Ok(sort_dir.as_ref().unwrap())
     }
 
     fn sort_and_write_segment<T>(

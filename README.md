@@ -29,11 +29,13 @@ impl Sortable<MyStruct> for MyStruct {
     }
 }
 
-let sorter = ExternalSorter::new();
-let reversed_data = (0..1000).rev().map(MyStruct).into_iter();
-let sorted_iter = sorter.sort(reversed_data).unwrap();
-let sorted_data: Vec<MyStruct> = sorted_iter.collect();
+fn main() {
+    let sorter = ExternalSorter::new();
+    let reversed_data = (0..1000).rev().map(MyStruct).into_iter();
+    let sorted_iter = sorter.sort(reversed_data).unwrap();
+    let sorted_data: Vec<MyStruct> = sorted_iter.collect();
 
-let expected_data = (0..1000).map(MyStruct).collect::<Vec<MyStruct>>();
-assert_eq!(sorted_data, expected_data);
+    let expected_data = (0..1000).map(MyStruct).collect::<Vec<MyStruct>>();
+    assert_eq!(sorted_data, expected_data);
+}
 ```
