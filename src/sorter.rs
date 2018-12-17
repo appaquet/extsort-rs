@@ -51,9 +51,11 @@ impl ExternalSorter {
         let mut tempdir: Option<tempdir::TempDir> = None;
         let mut sort_dir: Option<PathBuf> = None;
 
+        let mut count = 0;
         let mut segments_file: Vec<File> = Vec::new();
-        let mut buffer: Vec<T> = Vec::new();
+        let mut buffer: Vec<T> = Vec::with_capacity(self.max_size);
         for next_item in iterator {
+            count += 1;
             buffer.push(next_item);
             if buffer.len() > self.max_size {
                 let sort_dir = self.lazy_create_dir(&mut tempdir, &mut sort_dir)?;
@@ -73,10 +75,10 @@ impl ExternalSorter {
             Some(VecDeque::from(buffer))
         };
 
-        SortedIterator::new(tempdir, pass_through_queue, segments_file)
+        SortedIterator::new(tempdir, pass_through_queue, segments_file, count)
     }
 
-    /// We only want to create directory if it's needed (aka if the dataset doesn't fit in memory)
+    /// We only want to create directory if it's needed (i.e. if the dataset doesn't fit in memory)
     /// to prevent filesystem latency
     fn lazy_create_dir<'a>(
         &self,
@@ -142,6 +144,7 @@ pub struct SortedIterator<T: Sortable<T>> {
     pass_through_queue: Option<VecDeque<T>>,
     segments_file: Vec<BufReader<File>>,
     next_values: Vec<Option<T>>,
+    count: u64,
 }
 
 impl<T: Sortable<T>> SortedIterator<T> {
@@ -149,6 +152,7 @@ impl<T: Sortable<T>> SortedIterator<T> {
         tempdir: Option<tempdir::TempDir>,
         pass_through_queue: Option<VecDeque<T>>,
         mut segments_file: Vec<File>,
+        count: u64,
     ) -> Result<SortedIterator<T>, Error> {
         for segment in &mut segments_file {
             segment.seek(SeekFrom::Start(0))?;
@@ -166,11 +170,16 @@ impl<T: Sortable<T>> SortedIterator<T> {
             pass_through_queue,
             segments_file: segments_file_buffered,
             next_values,
+            count,
         })
     }
 
     fn read_item(file: &mut Read) -> Option<T> {
         <T as Sortable<T>>::decode(file)
+    }
+
+    pub fn sorted_count(&self) -> u64 {
+        self.count
     }
 }
 
@@ -213,9 +222,7 @@ impl<T: Sortable<T>> Iterator for SortedIterator<T> {
 pub mod test {
     use super::*;
 
-    use self::byteorder::{ReadBytesExt, WriteBytesExt};
-
-    pub extern crate byteorder;
+    use byteorder::{ReadBytesExt, WriteBytesExt};
 
     #[test]
     fn test_smaller_than_segment() {

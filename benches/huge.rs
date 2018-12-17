@@ -13,8 +13,6 @@
 // limitations under the License.
 
 #![feature(test)]
-extern crate byteorder;
-extern crate extsort;
 extern crate test;
 
 use std::io::{Read, Write};
@@ -59,7 +57,7 @@ mod tests {
             let sorted_iter = sorter
                 .sort((0..1000).map(MyStruct).into_iter().rev())
                 .unwrap();
-            sorted_iter.count();
+            sorted_iter.sorted_count();
         })
     }
 
@@ -79,7 +77,7 @@ mod tests {
             let sorted_iter = sorter
                 .sort((0..100_000).map(MyStruct).into_iter().rev())
                 .unwrap();
-            sorted_iter.count();
+            sorted_iter.sorted_count();
         })
     }
 
@@ -92,7 +90,7 @@ mod tests {
             let sorted_iter = sorter
                 .sort((0..1_000_000).map(MyStruct).into_iter().rev())
                 .unwrap();
-            sorted_iter.count();
+            sorted_iter.sorted_count();
         })
     }
 }

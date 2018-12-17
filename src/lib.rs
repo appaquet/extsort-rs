@@ -50,7 +50,5 @@
 //! assert_eq!(sorted_data, expected_data);
 //! ```
 
-extern crate tempdir;
-
 pub mod sorter;
 pub use crate::sorter::{ExternalSorter, Sortable, SortedIterator};
