@@ -60,7 +60,6 @@ impl ExternalSorter {
             if buffer.len() > self.max_size {
                 let sort_dir = self.lazy_create_dir(&mut tempdir, &mut sort_dir)?;
                 Self::sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer)?;
-                buffer.clear();
             }
         }
 
@@ -102,7 +101,7 @@ impl ExternalSorter {
     fn sort_and_write_segment<T>(
         sort_dir: &Path,
         segments: &mut Vec<File>,
-        buffer: &mut [T],
+        buffer: &mut Vec<T>,
     ) -> Result<(), Error>
     where
         T: Sortable<T>,
@@ -117,7 +116,8 @@ impl ExternalSorter {
             .write(true)
             .open(&segment_path)?;
         let mut buf_writer = BufWriter::new(segment_file);
-        for item in buffer {
+
+        for item in buffer.drain(0..) {
             <T as Sortable<T>>::encode(item, &mut buf_writer);
         }
 
@@ -135,8 +135,8 @@ impl Default for ExternalSorter {
 }
 
 pub trait Sortable<T>: Eq + Ord {
-    fn encode(item: &T, write: &mut Write);
-    fn decode(read: &mut Read) -> Option<T>;
+    fn encode(item: T, output: &mut Write);
+    fn decode(intput: &mut Read) -> Option<T>;
 }
 
 pub struct SortedIterator<T: Sortable<T>> {
@@ -254,8 +254,8 @@ pub mod test {
     }
 
     impl Sortable<u32> for u32 {
-        fn encode(item: &u32, write: &mut Write) {
-            write.write_u32::<byteorder::LittleEndian>(*item).unwrap();
+        fn encode(item: u32, write: &mut Write) {
+            write.write_u32::<byteorder::LittleEndian>(item).unwrap();
         }
 
         fn decode(read: &mut Read) -> Option<u32> {

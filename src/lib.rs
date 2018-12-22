@@ -30,7 +30,7 @@
 //! struct MyStruct(u32);
 //!
 //! impl Sortable<MyStruct> for MyStruct {
-//!     fn encode(item: &MyStruct, write: &mut Write) {
+//!     fn encode(item: MyStruct, write: &mut Write) {
 //!         write.write_u32::<byteorder::LittleEndian>(item.0).unwrap();
 //!     }
 //!
