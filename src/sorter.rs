@@ -70,7 +70,7 @@ impl ExternalSorter {
             Self::sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer)?;
             None
         } else {
-            buffer.sort();
+            buffer.sort_unstable();
             Some(VecDeque::from(buffer))
         };
 
@@ -106,7 +106,7 @@ impl ExternalSorter {
     where
         T: Sortable<T>,
     {
-        buffer.sort();
+        buffer.sort_unstable();
 
         let segment_path = sort_dir.join(format!("{}", segments.len()));
         let segment_file = OpenOptions::new()
