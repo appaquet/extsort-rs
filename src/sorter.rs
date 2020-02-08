@@ -135,8 +135,8 @@ impl Default for ExternalSorter {
 }
 
 pub trait Sortable<T>: Eq + Ord {
-    fn encode(item: T, output: &mut Write);
-    fn decode(intput: &mut Read) -> Option<T>;
+    fn encode<W: Write>(item: T, output: &mut W);
+    fn decode<R: Read>(intput: &mut R) -> Option<T>;
 }
 
 pub struct SortedIterator<T: Sortable<T>> {
@@ -174,7 +174,7 @@ impl<T: Sortable<T>> SortedIterator<T> {
         })
     }
 
-    fn read_item(file: &mut Read) -> Option<T> {
+    fn read_item<R: Read>(file: &mut R) -> Option<T> {
         <T as Sortable<T>>::decode(file)
     }
 
@@ -254,11 +254,11 @@ pub mod test {
     }
 
     impl Sortable<u32> for u32 {
-        fn encode(item: u32, write: &mut Write) {
+        fn encode<W: Write>(item: u32, write: &mut W) {
             write.write_u32::<byteorder::LittleEndian>(item).unwrap();
         }
 
-        fn decode(read: &mut Read) -> Option<u32> {
+        fn decode<R: Read>(read: &mut R) -> Option<u32> {
             read.read_u32::<byteorder::LittleEndian>().ok()
         }
     }

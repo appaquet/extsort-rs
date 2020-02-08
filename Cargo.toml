@@ -1,7 +1,7 @@
 [package]
 name = "extsort"
 description = "External sorting (i.e. on disk sorting) capability on arbitrarily sized iterator"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Andre-Philippe Paquet <appaquet@gmail.com>"]
 license = "Apache-2.0"
 readme = "README.md"
@@ -13,7 +13,7 @@ edition = "2018"
 tempdir = "0.3"
 
 [dev-dependencies]
-byteorder = "1.2.7"
+byteorder = "1.3"
 skeptic = "0.13"
 
 [build-dependencies]

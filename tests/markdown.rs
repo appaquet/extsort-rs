@@ -12,5 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// skeptic generates tests from markdown. See [build.rs]: ../build.rs
+// skeptic generates tests from markdown. See [build.rs]: ../build.rs
 include!(concat!(env!("OUT_DIR"), "/skeptic-tests.rs"));

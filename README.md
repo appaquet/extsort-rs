@@ -18,11 +18,11 @@ use std::io::{Read, Write};
 struct MyStruct(u32);
 
 impl Sortable<MyStruct> for MyStruct {
-    fn encode(item: MyStruct, write: &mut Write) {
+    fn encode<W: Write>(item: MyStruct, write: &mut W) {
         write.write_u32::<byteorder::LittleEndian>(item.0).unwrap();
     }
 
-    fn decode(read: &mut Read) -> Option<MyStruct> {
+    fn decode<R: Read>(read: &mut R) -> Option<MyStruct> {
         read.read_u32::<byteorder::LittleEndian>()
             .ok()
             .map(MyStruct)
