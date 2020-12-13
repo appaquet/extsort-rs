@@ -23,7 +23,13 @@ jobs:
           command: fmt
           args: --all -- --check
 
-      - name: Clippy & check
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all --all-features
+
+      - name: Run clippy
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
