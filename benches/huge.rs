@@ -96,7 +96,7 @@ mod tests {
     }
 
     #[bench]
-    fn bench_ext_sort_1million_max100(b: &mut Bencher) {
+    fn bench_ext_sort_1million_max1k(b: &mut Bencher) {
         let mut sorter = ExternalSorter::new();
         sorter.set_max_size(1000);
 
