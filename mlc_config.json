@@ -1,0 +1,10 @@
+{
+    "ignorePatterns": [
+        {
+            "pattern": "badge.svg"
+        },
+        {
+            "pattern": "https://crates.io/crates/extsort"
+        }
+    ]
+}

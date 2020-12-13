@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::collections::VecDeque;
-use std::fs::{File, OpenOptions};
-use std::io::{BufReader, BufWriter, Error, Read, Seek, SeekFrom, Write};
-use std::path::{Path, PathBuf};
-
-use tempdir;
+use std::{
+    collections::VecDeque,
+    fs::{File, OpenOptions},
+    io::{BufReader, BufWriter, Error, Read, Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
+};
 
 pub struct ExternalSorter {
     max_size: usize,
@@ -45,7 +45,7 @@ impl ExternalSorter {
     /// Sort a given iterator, returning a new iterator with items
     pub fn sort<T, I>(&self, iterator: I) -> Result<SortedIterator<T>, Error>
     where
-        T: Sortable<T>,
+        T: Sortable,
         I: Iterator<Item = T>,
     {
         let mut tempdir: Option<tempdir::TempDir> = None;
@@ -63,7 +63,7 @@ impl ExternalSorter {
             }
         }
 
-        // Write any items left in buffer, but only if we had at least 1 segment writen.
+        // Write any items left in buffer, but only if we had at least 1 segment written.
         // Otherwise we use the buffer itself to iterate from memory
         let pass_through_queue = if !buffer.is_empty() && !segments_file.is_empty() {
             let sort_dir = self.lazy_create_dir(&mut tempdir, &mut sort_dir)?;
@@ -104,7 +104,7 @@ impl ExternalSorter {
         buffer: &mut Vec<T>,
     ) -> Result<(), Error>
     where
-        T: Sortable<T>,
+        T: Sortable,
     {
         buffer.sort_unstable();
 
@@ -118,7 +118,7 @@ impl ExternalSorter {
         let mut buf_writer = BufWriter::new(segment_file);
 
         for item in buffer.drain(0..) {
-            <T as Sortable<T>>::encode(item, &mut buf_writer);
+            item.encode(&mut buf_writer);
         }
 
         let file = buf_writer.into_inner()?;
@@ -134,12 +134,12 @@ impl Default for ExternalSorter {
     }
 }
 
-pub trait Sortable<T>: Eq + Ord {
-    fn encode<W: Write>(item: T, output: &mut W);
-    fn decode<R: Read>(intput: &mut R) -> Option<T>;
+pub trait Sortable: Eq + Ord + Sized {
+    fn encode<W: Write>(&self, writer: &mut W);
+    fn decode<R: Read>(reader: &mut R) -> Option<Self>;
 }
 
-pub struct SortedIterator<T: Sortable<T>> {
+pub struct SortedIterator<T: Sortable> {
     _tempdir: Option<tempdir::TempDir>,
     pass_through_queue: Option<VecDeque<T>>,
     segments_file: Vec<BufReader<File>>,
@@ -147,7 +147,7 @@ pub struct SortedIterator<T: Sortable<T>> {
     count: u64,
 }
 
-impl<T: Sortable<T>> SortedIterator<T> {
+impl<T: Sortable> SortedIterator<T> {
     fn new(
         tempdir: Option<tempdir::TempDir>,
         pass_through_queue: Option<VecDeque<T>>,
@@ -160,7 +160,7 @@ impl<T: Sortable<T>> SortedIterator<T> {
 
         let next_values = segments_file
             .iter_mut()
-            .map(|file| Self::read_item(file))
+            .map(|file| T::decode(file))
             .collect();
 
         let segments_file_buffered = segments_file.into_iter().map(BufReader::new).collect();
@@ -174,16 +174,12 @@ impl<T: Sortable<T>> SortedIterator<T> {
         })
     }
 
-    fn read_item<R: Read>(file: &mut R) -> Option<T> {
-        <T as Sortable<T>>::decode(file)
-    }
-
     pub fn sorted_count(&self) -> u64 {
         self.count
     }
 }
 
-impl<T: Sortable<T>> Iterator for SortedIterator<T> {
+impl<T: Sortable> Iterator for SortedIterator<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<T> {
@@ -212,7 +208,7 @@ impl<T: Sortable<T>> Iterator for SortedIterator<T> {
         smallest_idx.map(|idx| {
             let file = &mut self.segments_file[idx];
             let value = self.next_values[idx].take().unwrap();
-            self.next_values[idx] = Self::read_item(file);
+            self.next_values[idx] = T::decode(file);
             value
         })
     }
@@ -253,13 +249,13 @@ pub mod test {
         assert_eq!(data, sorted_data);
     }
 
-    impl Sortable<u32> for u32 {
-        fn encode<W: Write>(item: u32, write: &mut W) {
-            write.write_u32::<byteorder::LittleEndian>(item).unwrap();
+    impl Sortable for u32 {
+        fn encode<W: Write>(&self, writer: &mut W) {
+            writer.write_u32::<byteorder::LittleEndian>(*self).unwrap();
         }
 
-        fn decode<R: Read>(read: &mut R) -> Option<u32> {
-            read.read_u32::<byteorder::LittleEndian>().ok()
+        fn decode<R: Read>(reader: &mut R) -> Option<u32> {
+            reader.read_u32::<byteorder::LittleEndian>().ok()
         }
     }
 }
