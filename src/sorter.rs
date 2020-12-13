@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use rayon::prelude::*;
 use std::{
     collections::VecDeque,
     fs::{File, OpenOptions},
@@ -106,7 +107,7 @@ impl ExternalSorter {
     where
         T: Sortable,
     {
-        buffer.sort_unstable();
+        buffer.par_sort_unstable();
 
         let segment_path = sort_dir.join(format!("{}", segments.len()));
         let segment_file = OpenOptions::new()
@@ -134,7 +135,7 @@ impl Default for ExternalSorter {
     }
 }
 
-pub trait Sortable: Eq + Ord + Sized {
+pub trait Sortable: Eq + Ord + Send + Sized {
     fn encode<W: Write>(&self, writer: &mut W);
     fn decode<R: Read>(reader: &mut R) -> Option<Self>;
 }
