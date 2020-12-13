@@ -29,9 +29,9 @@
 //! #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 //! struct MyStruct(u32);
 //!
-//! impl Sortable<MyStruct> for MyStruct {
-//!     fn encode<W: Write>(item: MyStruct, write: &mut W) {
-//!         write.write_u32::<byteorder::LittleEndian>(item.0).unwrap();
+//! impl Sortable for MyStruct {
+//!     fn encode<W: Write>(&self, write: &mut W) {
+//!         write.write_u32::<byteorder::LittleEndian>(self.0).unwrap();
 //!     }
 //!
 //!     fn decode<R: Read>(read: &mut R) -> Option<MyStruct> {
