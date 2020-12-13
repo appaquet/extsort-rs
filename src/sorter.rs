@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use itertools::{Itertools, KMerge};
 use std::{
     collections::VecDeque,
     fs::{File, OpenOptions},
     io::{BufReader, BufWriter, Error, Read, Seek, SeekFrom, Write},
+    marker::PhantomData,
     path::{Path, PathBuf},
 };
 
@@ -121,7 +123,11 @@ impl ExternalSorter {
             item.encode(&mut buf_writer);
         }
 
-        let file = buf_writer.into_inner()?;
+        let mut file = buf_writer.into_inner()?;
+
+        // seek back to beginning of file for reading stage
+        file.seek(SeekFrom::Start(0))?;
+
         segments.push(file);
 
         Ok(())
@@ -142,40 +148,43 @@ pub trait Sortable: Eq + Ord + Sized {
 pub struct SortedIterator<T: Sortable> {
     _tempdir: Option<tempdir::TempDir>,
     pass_through_queue: Option<VecDeque<T>>,
-    segments_file: Vec<BufReader<File>>,
-    next_values: Vec<Option<T>>,
-    count: u64,
+    chunks_iter: KMerge<ChunkReader<T>>,
+    segment_count: usize,
+    item_count: u64,
 }
 
 impl<T: Sortable> SortedIterator<T> {
     fn new(
         tempdir: Option<tempdir::TempDir>,
         pass_through_queue: Option<VecDeque<T>>,
-        mut segments_file: Vec<File>,
-        count: u64,
+        segment_files: Vec<File>,
+        item_count: u64,
     ) -> Result<SortedIterator<T>, Error> {
-        for segment in &mut segments_file {
-            segment.seek(SeekFrom::Start(0))?;
-        }
-
-        let next_values = segments_file
-            .iter_mut()
-            .map(|file| T::decode(file))
-            .collect();
-
-        let segments_file_buffered = segments_file.into_iter().map(BufReader::new).collect();
+        let segment_count = segment_files.len();
+        let chunk_readers = segment_files.into_iter().map(|file| {
+            let buf_file = BufReader::new(file);
+            ChunkReader {
+                reader: buf_file,
+                phantom: PhantomData,
+            }
+        });
+        let chunks_iter = chunk_readers.into_iter().kmerge();
 
         Ok(SortedIterator {
             _tempdir: tempdir,
             pass_through_queue,
-            segments_file: segments_file_buffered,
-            next_values,
-            count,
+            chunks_iter,
+            segment_count,
+            item_count,
         })
     }
 
     pub fn sorted_count(&self) -> u64 {
-        self.count
+        self.item_count
+    }
+
+    pub fn segment_count(&self) -> usize {
+        self.segment_count
     }
 }
 
@@ -188,29 +197,19 @@ impl<T: Sortable> Iterator for SortedIterator<T> {
             return ptb.pop_front();
         }
 
-        // otherwise, we iter from segments on disk
-        let mut smallest_idx: Option<usize> = None;
-        {
-            let mut smallest: Option<&T> = None;
-            for idx in 0..self.segments_file.len() {
-                let next_value = self.next_values[idx].as_ref();
-                if next_value.is_none() {
-                    continue;
-                }
+        self.chunks_iter.next()
+    }
+}
 
-                if smallest.is_none() || *next_value.unwrap() < *smallest.unwrap() {
-                    smallest = Some(next_value.unwrap());
-                    smallest_idx = Some(idx);
-                }
-            }
-        }
+struct ChunkReader<T: Sortable> {
+    reader: BufReader<std::fs::File>,
+    phantom: PhantomData<T>,
+}
 
-        smallest_idx.map(|idx| {
-            let file = &mut self.segments_file[idx];
-            let value = self.next_values[idx].take().unwrap();
-            self.next_values[idx] = T::decode(file);
-            value
-        })
+impl<T: Sortable> Iterator for ChunkReader<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        T::decode(&mut self.reader)
     }
 }
 
@@ -229,7 +228,7 @@ pub mod test {
         let sorted_iter = sorter.sort(data_rev.into_iter()).unwrap();
 
         // should not have used any segments (all in memory)
-        assert_eq!(sorted_iter.segments_file.len(), 0);
+        assert_eq!(sorted_iter.segment_count(), 0);
         let sorted_data: Vec<u32> = sorted_iter.collect();
 
         assert_eq!(data, sorted_data);
@@ -243,7 +242,7 @@ pub mod test {
 
         let data_rev: Vec<u32> = data.iter().rev().cloned().collect();
         let sorted_iter = sorter.sort(data_rev.into_iter()).unwrap();
-        assert_eq!(sorted_iter.segments_file.len(), 10);
+        assert_eq!(sorted_iter.segment_count(), 10);
 
         let sorted_data: Vec<u32> = sorted_iter.collect();
         assert_eq!(data, sorted_data);
