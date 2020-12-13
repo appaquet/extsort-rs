@@ -10,7 +10,7 @@ repository = "https://github.com/appaquet/extsort-rs"
 edition = "2018"
 
 [dependencies]
-tempdir = "0.3"
+tempfile = "3.1"
 
 [dev-dependencies]
 byteorder = "1.3"
