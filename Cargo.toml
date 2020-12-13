@@ -11,6 +11,7 @@ edition = "2018"
 
 [dependencies]
 tempdir = "0.3"
+itertools = "0.9"
 
 [dev-dependencies]
 byteorder = "1.3"
