@@ -30,7 +30,8 @@ impl Sortable for MyStruct {
     }
 
     fn decode<R: Read>(reader: &mut R) -> Option<MyStruct> {
-        reader.read_u32::<byteorder::LittleEndian>()
+        reader
+            .read_u32::<byteorder::LittleEndian>()
             .ok()
             .map(MyStruct)
     }
@@ -82,9 +83,22 @@ mod tests {
     }
 
     #[bench]
-    fn bench_ext_sort_1million(b: &mut Bencher) {
+    fn bench_ext_sort_1million_max100k(b: &mut Bencher) {
         let mut sorter = ExternalSorter::new();
         sorter.set_max_size(100_000);
+
+        b.iter(|| {
+            let sorted_iter = sorter
+                .sort((0..1_000_000).map(MyStruct).into_iter().rev())
+                .unwrap();
+            sorted_iter.sorted_count();
+        })
+    }
+
+    #[bench]
+    fn bench_ext_sort_1million_max100(b: &mut Bencher) {
+        let mut sorter = ExternalSorter::new();
+        sorter.set_max_size(1000);
 
         b.iter(|| {
             let sorted_iter = sorter
