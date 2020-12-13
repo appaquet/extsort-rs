@@ -48,7 +48,7 @@ impl ExternalSorter {
         T: Sortable,
         I: Iterator<Item = T>,
     {
-        let mut tempdir: Option<tempdir::TempDir> = None;
+        let mut tempdir: Option<tempfile::TempDir> = None;
         let mut sort_dir: Option<PathBuf> = None;
 
         let mut count = 0;
@@ -81,7 +81,7 @@ impl ExternalSorter {
     /// to prevent filesystem latency
     fn lazy_create_dir<'a>(
         &self,
-        tempdir: &mut Option<tempdir::TempDir>,
+        tempdir: &mut Option<tempfile::TempDir>,
         sort_dir: &'a mut Option<PathBuf>,
     ) -> Result<&'a Path, Error> {
         if let Some(sort_dir) = sort_dir {
@@ -91,7 +91,7 @@ impl ExternalSorter {
         *sort_dir = if let Some(ref sort_dir) = self.sort_dir {
             Some(sort_dir.to_path_buf())
         } else {
-            *tempdir = Some(tempdir::TempDir::new("sort")?);
+            *tempdir = Some(tempfile::TempDir::new()?);
             Some(tempdir.as_ref().unwrap().path().to_path_buf())
         };
 
@@ -140,7 +140,7 @@ pub trait Sortable: Eq + Ord + Sized {
 }
 
 pub struct SortedIterator<T: Sortable> {
-    _tempdir: Option<tempdir::TempDir>,
+    _tempdir: Option<tempfile::TempDir>,
     pass_through_queue: Option<VecDeque<T>>,
     segments_file: Vec<BufReader<File>>,
     next_values: Vec<Option<T>>,
@@ -149,7 +149,7 @@ pub struct SortedIterator<T: Sortable> {
 
 impl<T: Sortable> SortedIterator<T> {
     fn new(
-        tempdir: Option<tempdir::TempDir>,
+        tempdir: Option<tempfile::TempDir>,
         pass_through_queue: Option<VecDeque<T>>,
         mut segments_file: Vec<File>,
         count: u64,
