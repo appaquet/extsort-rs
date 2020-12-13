@@ -19,8 +19,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use tempdir;
-
 pub struct ExternalSorter {
     max_size: usize,
     sort_dir: Option<PathBuf>,
