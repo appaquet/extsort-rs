@@ -1,4 +1,6 @@
-extsort [![crates.io](https://img.shields.io/crates/v/extsort.svg)](https://crates.io/crates/extsort)
+extsort 
+[![crates.io](https://img.shields.io/crates/v/extsort.svg)](https://crates.io/crates/extsort)
+[![dependency status](https://deps.rs/repo/github/appaquet/extsort-rs/status.svg)](https://deps.rs/repo/github/appaquet/extsort-rs)
 ==========
 
 Exposes external sorting (i.e. on disk sorting) capability on arbitrarily sized iterator, even if the
