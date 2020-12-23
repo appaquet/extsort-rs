@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The `extsort` crate exposes external sorting (i.e. on disk sorting) capability on arbitrarily sized iterator, even if the
-//! generated content of the iterator doesn't fit in memory. Once sorted, it returns a new sorted iterator.
+//! The `extsort` crate exposes external sorting (i.e. on disk sorting)
+//! capability on arbitrarily sized iterator, even if the generated content of
+//! the iterator doesn't fit in memory. Once sorted, it returns a new sorted
+//! iterator.
 //!
-//! In order to remain efficient for all implementations, `extsort` doesn't handle serialization, but leaves that to the user.
+//! In order to remain efficient for all implementations, `extsort` doesn't
+//! handle serialization, but leaves that to the user.
 //!
 //! # Examples
 //! ```rust

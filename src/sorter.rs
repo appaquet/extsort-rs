@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use rayon::prelude::*;
 use std::{
     collections::VecDeque,
     fs::{File, OpenOptions},
@@ -19,30 +20,59 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Exposes external sorting (i.e. on disk sorting) capability on arbitrarily
+/// sized iterator, even if the generated content of the iterator doesn't fit in
+/// memory.
+///
+/// It uses an in-memory buffer sorted and flushed to disk in segment files when
+/// full. Once sorted, it returns a new sorted iterator with all items. In order
+/// to remain efficient for all implementations, the crate doesn't handle
+/// serialization, but leaves that to the user.
 pub struct ExternalSorter {
-    max_size: usize,
+    segment_size: usize,
     sort_dir: Option<PathBuf>,
+    parallel: bool,
 }
 
 impl ExternalSorter {
     pub fn new() -> ExternalSorter {
         ExternalSorter {
-            max_size: 10000,
+            segment_size: 10000,
             sort_dir: None,
+            parallel: false,
         }
     }
 
-    /// Set maximum number of items we can buffer in memory
-    pub fn set_max_size(&mut self, max_size: usize) {
-        self.max_size = max_size;
+    /// Sets the maximum size of each segment in number of sorted items.
+    ///
+    /// This number of items needs to fit in memory. While sorting, a
+    /// in-memory buffer is used to collect the items to be sorted. Once
+    /// it reaches the maximum size, it is sorted and then written to disk.
+    ///
+    /// Using a higher segment size makes sorting faster by leveraging
+    /// faster in-memory operations.
+    pub fn with_segment_size(mut self, size: usize) -> Self {
+        self.segment_size = size;
+        self
     }
 
-    /// Set directory in which sorted segments will be written (if it doesn't fit in memory)
-    pub fn set_sort_dir(&mut self, path: PathBuf) {
+    /// Sets directory in which sorted segments will be written (if it doesn't
+    /// fit in memory).
+    pub fn with_sort_dir(mut self, path: PathBuf) -> Self {
         self.sort_dir = Some(path);
+        self
     }
 
-    /// Sort a given iterator, returning a new iterator with items
+    /// Uses Rayon to sort the in-memory buffer.
+    ///
+    /// This may not be needed if the buffer isn't big enough for parallelism to
+    /// be gainful over the overhead of multithreading.
+    pub fn with_parallel_sort(mut self) -> Self {
+        self.parallel = true;
+        self
+    }
+
+    /// Sorts a given iterator, returning a new iterator with items
     pub fn sort<T, I>(&self, iterator: I) -> Result<SortedIterator<T>, Error>
     where
         T: Sortable,
@@ -53,21 +83,21 @@ impl ExternalSorter {
 
         let mut count = 0;
         let mut segments_file: Vec<File> = Vec::new();
-        let mut buffer: Vec<T> = Vec::with_capacity(self.max_size);
+        let mut buffer: Vec<T> = Vec::with_capacity(self.segment_size);
         for next_item in iterator {
             count += 1;
             buffer.push(next_item);
-            if buffer.len() > self.max_size {
+            if buffer.len() > self.segment_size {
                 let sort_dir = self.lazy_create_dir(&mut tempdir, &mut sort_dir)?;
-                Self::sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer)?;
+                self.sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer)?;
             }
         }
 
-        // Write any items left in buffer, but only if we had at least 1 segment written.
-        // Otherwise we use the buffer itself to iterate from memory
+        // Write any items left in buffer, but only if we had at least 1 segment
+        // written. Otherwise we use the buffer itself to iterate from memory
         let pass_through_queue = if !buffer.is_empty() && !segments_file.is_empty() {
             let sort_dir = self.lazy_create_dir(&mut tempdir, &mut sort_dir)?;
-            Self::sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer)?;
+            self.sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer)?;
             None
         } else {
             buffer.sort_unstable();
@@ -77,8 +107,8 @@ impl ExternalSorter {
         SortedIterator::new(tempdir, pass_through_queue, segments_file, count)
     }
 
-    /// We only want to create directory if it's needed (i.e. if the dataset doesn't fit in memory)
-    /// to prevent filesystem latency
+    /// We only want to create directory if it's needed (i.e. if the dataset
+    /// doesn't fit in memory) to prevent filesystem latency
     fn lazy_create_dir<'a>(
         &self,
         tempdir: &mut Option<tempfile::TempDir>,
@@ -99,6 +129,7 @@ impl ExternalSorter {
     }
 
     fn sort_and_write_segment<T>(
+        &self,
         sort_dir: &Path,
         segments: &mut Vec<File>,
         buffer: &mut Vec<T>,
@@ -106,7 +137,11 @@ impl ExternalSorter {
     where
         T: Sortable,
     {
-        buffer.sort_unstable();
+        if self.parallel {
+            buffer.par_sort_unstable();
+        } else {
+            buffer.sort_unstable();
+        }
 
         let segment_path = sort_dir.join(format!("{}", segments.len()));
         let segment_file = OpenOptions::new()
@@ -134,7 +169,7 @@ impl Default for ExternalSorter {
     }
 }
 
-pub trait Sortable: Eq + Ord + Sized {
+pub trait Sortable: Eq + Ord + Sized + Send {
     fn encode<W: Write>(&self, writer: &mut W);
     fn decode<R: Read>(reader: &mut R) -> Option<Self>;
 }
@@ -237,8 +272,22 @@ pub mod test {
 
     #[test]
     fn test_multiple_segments() {
-        let mut sorter = ExternalSorter::new();
-        sorter.set_max_size(100);
+        let sorter = ExternalSorter::new().with_segment_size(100);
+        let data: Vec<u32> = (0..1000u32).collect();
+
+        let data_rev: Vec<u32> = data.iter().rev().cloned().collect();
+        let sorted_iter = sorter.sort(data_rev.into_iter()).unwrap();
+        assert_eq!(sorted_iter.segments_file.len(), 10);
+
+        let sorted_data: Vec<u32> = sorted_iter.collect();
+        assert_eq!(data, sorted_data);
+    }
+
+    #[test]
+    fn test_parallel() {
+        let sorter = ExternalSorter::new()
+            .with_segment_size(100)
+            .with_parallel_sort();
         let data: Vec<u32> = (0..1000u32).collect();
 
         let data_rev: Vec<u32> = data.iter().rev().cloned().collect();

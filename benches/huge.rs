@@ -173,9 +173,68 @@ mod tests {
     }
 
     #[bench]
+    fn bench_ext_sort_1million_max1k_sorted(b: &mut Bencher) {
+        let sorter = ExternalSorter::new().with_segment_size(1000);
+
+        b.iter(|| {
+            let sorted_iter = sorter
+                .sort((0..1_000_000).map(MyStruct).into_iter())
+                .unwrap();
+            sorted_iter.sorted_count();
+        })
+    }
+
+    #[bench]
+    fn bench_ext_sort_1million_max1k_rev(b: &mut Bencher) {
+        let sorter = ExternalSorter::new().with_segment_size(1000);
+
+        b.iter(|| {
+            let sorted_iter = sorter
+                .sort((0..1_000_000).map(MyStruct).into_iter().rev())
+                .unwrap();
+            sorted_iter.sorted_count();
+        })
+    }
+
+    #[bench]
+    fn bench_ext_sort_1million_max1k_rand(b: &mut Bencher) {
+        let sorter = ExternalSorter::new().with_segment_size(1000);
+
+        b.iter(|| {
+            let sorted_iter = sorter
+                .sort(
+                    (0..1_000_000)
+                        .map(|_| MyStruct(rand::random()))
+                        .into_iter()
+                        .rev(),
+                )
+                .unwrap();
+            sorted_iter.sorted_count();
+        })
+    }
+
+    #[bench]
+    fn bench_ext_sort_1million_max1k_rand_parallel(b: &mut Bencher) {
+        let sorter = ExternalSorter::new()
+            .with_segment_size(1000)
+            .with_parallel_sort();
+
+        b.iter(|| {
+            let sorted_iter = sorter
+                .sort(
+                    (0..1_000_000)
+                        .map(|_| MyStruct(rand::random()))
+                        .into_iter()
+                        .rev(),
+                )
+                .unwrap();
+            sorted_iter.sorted_count();
+        })
+    }
+
+    #[bench]
     fn bench_ext_sort_1million_max100k_sorted(b: &mut Bencher) {
-        let mut sorter = ExternalSorter::new();
-        sorter.set_max_size(100_000);
+        let sorter = ExternalSorter::new().with_segment_size(100_000);
 
         b.iter(|| {
             let sorted_iter = sorter
@@ -187,8 +246,7 @@ mod tests {
 
     #[bench]
     fn bench_ext_sort_1million_max100k_rev(b: &mut Bencher) {
-        let mut sorter = ExternalSorter::new();
-        sorter.set_max_size(100_000);
+        let sorter = ExternalSorter::new().with_segment_size(100_000);
 
         b.iter(|| {
             let sorted_iter = sorter
@@ -200,8 +258,26 @@ mod tests {
 
     #[bench]
     fn bench_ext_sort_1million_max100k_rand(b: &mut Bencher) {
-        let mut sorter = ExternalSorter::new();
-        sorter.set_max_size(100_000);
+        let sorter = ExternalSorter::new().with_segment_size(100_000);
+
+        b.iter(|| {
+            let sorted_iter = sorter
+                .sort(
+                    (0..1_000_000)
+                        .map(|_| MyStruct(rand::random()))
+                        .into_iter()
+                        .rev(),
+                )
+                .unwrap();
+            sorted_iter.sorted_count();
+        })
+    }
+
+    #[bench]
+    fn bench_ext_sort_1million_max100k_rand_parallel(b: &mut Bencher) {
+        let sorter = ExternalSorter::new()
+            .with_segment_size(100_000)
+            .with_parallel_sort();
 
         b.iter(|| {
             let sorted_iter = sorter
@@ -218,8 +294,7 @@ mod tests {
 
     #[bench]
     fn bench_ext_sort_1million_max500k_sorted(b: &mut Bencher) {
-        let mut sorter = ExternalSorter::new();
-        sorter.set_max_size(500_000);
+        let sorter = ExternalSorter::new().with_segment_size(500_000);
 
         b.iter(|| {
             let sorted_iter = sorter
@@ -231,8 +306,7 @@ mod tests {
 
     #[bench]
     fn bench_ext_sort_1million_max500k_rev(b: &mut Bencher) {
-        let mut sorter = ExternalSorter::new();
-        sorter.set_max_size(500_000);
+        let sorter = ExternalSorter::new().with_segment_size(500_000);
 
         b.iter(|| {
             let sorted_iter = sorter
@@ -244,8 +318,7 @@ mod tests {
 
     #[bench]
     fn bench_ext_sort_1million_max500k_rand(b: &mut Bencher) {
-        let mut sorter = ExternalSorter::new();
-        sorter.set_max_size(500_000);
+        let sorter = ExternalSorter::new().with_segment_size(500_000);
 
         b.iter(|| {
             let sorted_iter = sorter
@@ -261,35 +334,10 @@ mod tests {
     }
 
     #[bench]
-    fn bench_ext_sort_1million_max1k_sorted(b: &mut Bencher) {
-        let mut sorter = ExternalSorter::new();
-        sorter.set_max_size(1000);
-
-        b.iter(|| {
-            let sorted_iter = sorter
-                .sort((0..1_000_000).map(MyStruct).into_iter())
-                .unwrap();
-            sorted_iter.sorted_count();
-        })
-    }
-
-    #[bench]
-    fn bench_ext_sort_1million_max1k_rev(b: &mut Bencher) {
-        let mut sorter = ExternalSorter::new();
-        sorter.set_max_size(1000);
-
-        b.iter(|| {
-            let sorted_iter = sorter
-                .sort((0..1_000_000).map(MyStruct).into_iter().rev())
-                .unwrap();
-            sorted_iter.sorted_count();
-        })
-    }
-
-    #[bench]
-    fn bench_ext_sort_1million_max1k_rand(b: &mut Bencher) {
-        let mut sorter = ExternalSorter::new();
-        sorter.set_max_size(1000);
+    fn bench_ext_sort_1million_max500k_rand_parallel(b: &mut Bencher) {
+        let sorter = ExternalSorter::new()
+            .with_segment_size(500_000)
+            .with_parallel_sort();
 
         b.iter(|| {
             let sorted_iter = sorter
