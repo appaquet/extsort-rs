@@ -19,6 +19,10 @@
 //!
 //! In order to remain efficient for all implementations, `extsort` doesn't
 //! handle serialization, but leaves that to the user.
+//! 
+//! The sorter can optionally use [`rayon`](https://crates.io/crates/rayon) to 
+//! sort the in-memory buffer. It is generally faster when the buffer size is big
+//! enough for parallelism to have an impact over its overhead.
 //!
 //! # Examples
 //! ```rust
