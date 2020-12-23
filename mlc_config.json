@@ -4,7 +4,7 @@
             "pattern": "badge.svg"
         },
         {
-            "pattern": "https://crates.io/crates/extsort"
+            "pattern": "https://crates.io"
         }
     ]
 }
