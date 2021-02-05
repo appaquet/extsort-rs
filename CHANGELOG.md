@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Added `sort_by` and `sort_by_key` (by @NieDzejkob [#10](https://github.com/appaquet/extsort-rs/pull/10))
 
+## [0.4.0] - 2021-02-04
+- Yanked
+
 ## [0.4.0] - 2020-12-23
 ### Added
 - Support for parallel sorting of the in-memory buffer (see `ExternalSorter::with_parallel_sort`).

@@ -200,7 +200,7 @@ impl Default for ExternalSorter {
     }
 }
 
-pub trait Sortable: Sized + Send + Sync {
+pub trait Sortable: Sized + Send  {
     fn encode<W: Write>(&self, writer: &mut W);
     fn decode<R: Read>(reader: &mut R) -> Option<Self>;
 }
