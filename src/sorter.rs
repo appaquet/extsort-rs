@@ -14,6 +14,7 @@
 
 use rayon::prelude::*;
 use std::{
+    cmp::Ordering,
     collections::VecDeque,
     fs::{File, OpenOptions},
     io::{BufReader, BufWriter, Error, Read, Seek, SeekFrom, Write},
@@ -73,10 +74,23 @@ impl ExternalSorter {
     }
 
     /// Sorts a given iterator, returning a new iterator with items
-    pub fn sort<T, I>(&self, iterator: I) -> Result<SortedIterator<T>, Error>
+    pub fn sort<T, I>(
+        &self,
+        iterator: I,
+    ) -> Result<SortedIterator<T, impl Fn(&T, &T) -> Ordering + Send + Sync>, Error>
+    where
+        T: Sortable + Ord,
+        I: Iterator<Item = T>,
+    {
+        self.sort_by(iterator, |a, b| a.cmp(b))
+    }
+
+    /// Sorts a given iterator with a comparator function, returning a new iterator with items
+    pub fn sort_by<T, I, F>(&self, iterator: I, cmp: F) -> Result<SortedIterator<T, F>, Error>
     where
         T: Sortable,
         I: Iterator<Item = T>,
+        F: Fn(&T, &T) -> Ordering + Send + Sync,
     {
         let mut tempdir: Option<tempfile::TempDir> = None;
         let mut sort_dir: Option<PathBuf> = None;
@@ -89,7 +103,7 @@ impl ExternalSorter {
             buffer.push(next_item);
             if buffer.len() > self.segment_size {
                 let sort_dir = self.lazy_create_dir(&mut tempdir, &mut sort_dir)?;
-                self.sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer)?;
+                self.sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer, &cmp)?;
             }
         }
 
@@ -97,14 +111,29 @@ impl ExternalSorter {
         // written. Otherwise we use the buffer itself to iterate from memory
         let pass_through_queue = if !buffer.is_empty() && !segments_file.is_empty() {
             let sort_dir = self.lazy_create_dir(&mut tempdir, &mut sort_dir)?;
-            self.sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer)?;
+            self.sort_and_write_segment(sort_dir, &mut segments_file, &mut buffer, &cmp)?;
             None
         } else {
-            buffer.sort_unstable();
+            buffer.sort_unstable_by(&cmp);
             Some(VecDeque::from(buffer))
         };
 
-        SortedIterator::new(tempdir, pass_through_queue, segments_file, count)
+        SortedIterator::new(tempdir, pass_through_queue, segments_file, count, cmp)
+    }
+
+    /// Sorts a given iterator with a key extraction function, returning a new iterator with items
+    pub fn sort_by_key<T, I, F, K>(
+        &self,
+        iterator: I,
+        f: F,
+    ) -> Result<SortedIterator<T, impl Fn(&T, &T) -> Ordering + Send + Sync>, Error>
+    where
+        T: Sortable,
+        I: Iterator<Item = T>,
+        F: Fn(&T) -> K + Send + Sync,
+        K: Ord,
+    {
+        self.sort_by(iterator, move |a, b| f(a).cmp(&f(b)))
     }
 
     /// We only want to create directory if it's needed (i.e. if the dataset
@@ -128,19 +157,21 @@ impl ExternalSorter {
         Ok(sort_dir.as_ref().unwrap())
     }
 
-    fn sort_and_write_segment<T>(
+    fn sort_and_write_segment<T, F>(
         &self,
         sort_dir: &Path,
         segments: &mut Vec<File>,
         buffer: &mut Vec<T>,
+        cmp: F,
     ) -> Result<(), Error>
     where
         T: Sortable,
+        F: Fn(&T, &T) -> Ordering + Send + Sync,
     {
         if self.parallel {
-            buffer.par_sort_unstable();
+            buffer.par_sort_unstable_by(|a, b| cmp(a, b));
         } else {
-            buffer.sort_unstable();
+            buffer.sort_unstable_by(|a, b| cmp(a, b));
         }
 
         let segment_path = sort_dir.join(format!("{}", segments.len()));
@@ -169,26 +200,28 @@ impl Default for ExternalSorter {
     }
 }
 
-pub trait Sortable: Eq + Ord + Sized + Send {
+pub trait Sortable: Sized + Send + Sync {
     fn encode<W: Write>(&self, writer: &mut W);
     fn decode<R: Read>(reader: &mut R) -> Option<Self>;
 }
 
-pub struct SortedIterator<T: Sortable> {
+pub struct SortedIterator<T: Sortable, F> {
     _tempdir: Option<tempfile::TempDir>,
     pass_through_queue: Option<VecDeque<T>>,
     segments_file: Vec<BufReader<File>>,
     next_values: Vec<Option<T>>,
     count: u64,
+    cmp: F,
 }
 
-impl<T: Sortable> SortedIterator<T> {
+impl<T: Sortable, F: Fn(&T, &T) -> Ordering + Send + Sync> SortedIterator<T, F> {
     fn new(
         tempdir: Option<tempfile::TempDir>,
         pass_through_queue: Option<VecDeque<T>>,
         mut segments_file: Vec<File>,
         count: u64,
-    ) -> Result<SortedIterator<T>, Error> {
+        cmp: F,
+    ) -> Result<SortedIterator<T, F>, Error> {
         for segment in &mut segments_file {
             segment.seek(SeekFrom::Start(0))?;
         }
@@ -206,6 +239,7 @@ impl<T: Sortable> SortedIterator<T> {
             segments_file: segments_file_buffered,
             next_values,
             count,
+            cmp,
         })
     }
 
@@ -214,7 +248,7 @@ impl<T: Sortable> SortedIterator<T> {
     }
 }
 
-impl<T: Sortable> Iterator for SortedIterator<T> {
+impl<T: Sortable, F: Fn(&T, &T) -> Ordering> Iterator for SortedIterator<T, F> {
     type Item = T;
 
     fn next(&mut self) -> Option<T> {
@@ -233,7 +267,9 @@ impl<T: Sortable> Iterator for SortedIterator<T> {
                     continue;
                 }
 
-                if smallest.is_none() || *next_value.unwrap() < *smallest.unwrap() {
+                if smallest.is_none()
+                    || (self.cmp)(next_value.unwrap(), smallest.unwrap()) == Ordering::Less
+                {
                     smallest = Some(next_value.unwrap());
                     smallest_idx = Some(idx);
                 }
