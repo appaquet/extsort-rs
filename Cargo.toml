@@ -7,7 +7,7 @@ license = "Apache-2.0"
 readme = "README.md"
 keywords = ["sorting", "sort", "external"]
 repository = "https://github.com/appaquet/extsort-rs"
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 tempfile = "3.1"
