@@ -10,7 +10,7 @@ jobs:
   rust_checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions-rs/toolchain@v1.0.7
         with:
@@ -39,5 +39,5 @@ jobs:
   markdown_links_check:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - uses: gaurav-nelson/github-action-markdown-link-check@1.0.15
