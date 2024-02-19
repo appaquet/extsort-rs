@@ -180,7 +180,7 @@ impl ExternalSorter {
             .truncate(true)
             .read(true)
             .write(true)
-            .open(&segment_path)?;
+            .open(segment_path)?;
         let mut buf_writer = BufWriter::new(segment_file);
 
         for item in buffer.drain(0..) {

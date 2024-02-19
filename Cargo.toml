@@ -10,11 +10,11 @@ repository = "https://github.com/appaquet/extsort-rs"
 edition = "2021"
 
 [dependencies]
-tempfile = "3.1"
-rayon = "1.5"
+tempfile = "3.10"
+rayon = "1.8"
 
 [dev-dependencies]
-byteorder = "1.3"
+byteorder = "1.5"
 skeptic = "0.13"
 rand = "0.8"
 
