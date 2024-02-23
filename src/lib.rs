@@ -140,15 +140,20 @@ pub mod test {
         struct ErrStruct(u32);
         impl Sortable for ErrStruct {
             fn encode<W: Write>(&self, writer: &mut W) -> Result<()> {
-                writer.write_u32::<byteorder::LittleEndian>(0)?;
+                writer.write_u32::<byteorder::LittleEndian>(self.0)?;
                 Ok(())
             }
 
-            fn decode<R: Read>(_reader: &mut R) -> std::io::Result<ErrStruct> {
-                Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "MyStruct::decode error",
-                ))
+            fn decode<R: Read>(reader: &mut R) -> std::io::Result<ErrStruct> {
+                let value = reader.read_u32::<byteorder::LittleEndian>()?;
+                if value == 1 {
+                    Err(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "MyStruct::decode error",
+                    ))
+                } else {
+                    Ok(ErrStruct(value))
+                }
             }
         }
 
@@ -157,11 +162,10 @@ pub mod test {
             sorter.push(ErrStruct(item)).unwrap();
         }
 
-        assert!(sorter.done().is_err());
-
-        // TODO: try to get error from iter instead
-        // let res = sorted_iter.next().unwrap();
-        // assert!(res.is_err());
+        // first value is fine, but second should fail
+        let sorted_iter = sorter.done().unwrap();
+        let res = sorted_iter.take(1).next().unwrap();
+        assert!(res.is_err());
     }
 
     impl Sortable for u32 {
