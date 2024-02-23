@@ -68,7 +68,13 @@ pub use crate::push::PushExternalSorter;
 pub use crate::sorter::ExternalSorter;
 
 pub trait Sortable: Sized + Send {
+    /// Encodes the item to the given writer.
     fn encode<W: Write>(&self, writer: &mut W) -> std::io::Result<()>;
+
+    /// Decodes the item from the given reader.
+    ///
+    /// Important: the implementation relies on the `UnexpectedEof` error from
+    /// `std::io::Read` to detect the end of the stream.
     fn decode<R: Read>(reader: &mut R) -> std::io::Result<Self>;
 }
 
