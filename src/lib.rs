@@ -57,5 +57,6 @@
 //! assert_eq!(sorted_data, expected_data);
 //! ```
 
+pub mod pull;
 pub mod sorter;
 pub use crate::sorter::{ExternalSorter, Sortable, SortedIterator};

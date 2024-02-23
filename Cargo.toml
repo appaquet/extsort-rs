@@ -17,6 +17,14 @@ rayon = "1.8"
 byteorder = "1.5"
 skeptic = "0.13"
 rand = "0.8"
+criterion = "0.5"
 
 [build-dependencies]
 skeptic = "0.13"
+
+[[bench]]
+harness = false
+name = "huge"
+
+[profile.bench]
+debug = true
