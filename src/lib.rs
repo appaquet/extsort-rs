@@ -37,13 +37,13 @@
 //! struct MyStruct(u32);
 //!
 //! impl Sortable for MyStruct {
-//!     fn encode<W: Write>(&self, write: &mut W) {
-//!         write.write_u32::<byteorder::LittleEndian>(self.0).unwrap();
+//!     fn encode<W: Write>(&self, write: &mut W) -> std::io::Result<()> {
+//!         write.write_u32::<byteorder::LittleEndian>(self.0)?;
+//!         Ok(())
 //!     }
 //!
-//!     fn decode<R: Read>(read: &mut R) -> Option<MyStruct> {
+//!     fn decode<R: Read>(read: &mut R) -> std::io::Result<MyStruct> {
 //!         read.read_u32::<byteorder::LittleEndian>()
-//!             .ok()
 //!             .map(MyStruct)
 //!     }
 //! }
@@ -51,7 +51,7 @@
 //! let sorter = ExternalSorter::new();
 //! let reversed_data = (0..1000).rev().map(MyStruct).into_iter();
 //! let sorted_iter = sorter.sort(reversed_data).unwrap();
-//! let sorted_data: Vec<MyStruct> = sorted_iter.collect();
+//! let sorted_data = sorted_iter.collect::<std::io::Result<Vec<MyStruct>>>().unwrap();
 //!
 //! let expected_data = (0..1000).map(MyStruct).collect::<Vec<MyStruct>>();
 //! assert_eq!(sorted_data, expected_data);
