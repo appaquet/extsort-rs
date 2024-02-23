@@ -28,3 +28,4 @@ name = "huge"
 
 [profile.bench]
 debug = true
+opt-level = 1

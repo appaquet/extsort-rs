@@ -15,66 +15,69 @@
 use std::io::{Read, Write};
 
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use extsort::*;
 
 fn bench_vec_sort_1000_sorted(c: &mut Criterion) {
     c.bench_function("bench_vec_sort_1000_sorted", |b| {
         b.iter(|| {
-            let mut sorted_iter: Vec<MyStruct> = (0..1000).map(MyStruct).collect();
-            sorted_iter.sort();
+            let mut sorted_vec: Vec<MyStruct> = (0..1000).map(MyStruct).collect();
+            sorted_vec.sort();
+            black_box(sorted_vec);
         });
+    });
+}
+
+fn bench_ext_sort_1000_sorted(c: &mut Criterion) {
+    c.bench_function("bench_ext_sort_1000_sorted", |b| {
+        b.iter(|| {
+            let sorter = ExternalSorter::new();
+            let sorted_iter = sorter.sort((0..1000).map(MyStruct)).unwrap();
+            black_box(sorted_iter.count());
+        })
     });
 }
 
 fn bench_vec_sort_1000_rev(c: &mut Criterion) {
     c.bench_function("bench_vec_sort_1000_rev", |b| {
         b.iter(|| {
-            let mut sorted_iter: Vec<MyStruct> = (0..1000).map(MyStruct).rev().collect();
-            sorted_iter.sort();
+            let mut sorted_vec: Vec<MyStruct> = (0..1000).map(MyStruct).rev().collect();
+            sorted_vec.sort();
+            black_box(sorted_vec);
         });
+    });
+}
+
+fn bench_ext_sort_1000_rev(c: &mut Criterion) {
+    c.bench_function("bench_ext_sort_1000_rev", |b| {
+        b.iter(|| {
+            let sorter = ExternalSorter::new();
+            let sorted_iter = sorter.sort((0..1000).map(MyStruct).rev()).unwrap();
+            black_box(sorted_iter.count());
+        })
     });
 }
 
 fn bench_vec_sort_1000_rand(c: &mut Criterion) {
     c.bench_function("bench_vec_sort_1000_rand", |b| {
         b.iter(|| {
-            let mut sorted_iter: Vec<MyStruct> =
+            let mut sorted_vec: Vec<MyStruct> =
                 (0..1000).map(|_| MyStruct(rand::random())).rev().collect();
-            sorted_iter.sort();
-        })
-    });
-}
-
-fn bench_ext_sort_1000_sorted(c: &mut Criterion) {
-    c.bench_function("bench_ext_sort_1000_sorted", |b| {
-        let sorter = ExternalSorter::new();
-        b.iter(|| {
-            let sorted_iter = sorter.sort((0..1000).map(MyStruct)).unwrap();
-            sorted_iter.sorted_count();
-        })
-    });
-}
-
-fn bench_ext_sort_1000_rev(c: &mut Criterion) {
-    c.bench_function("bench_ext_sort_1000_rev", |b| {
-        let sorter = ExternalSorter::new();
-        b.iter(|| {
-            let sorted_iter = sorter.sort((0..1000).map(MyStruct).rev()).unwrap();
-            sorted_iter.sorted_count();
+            sorted_vec.sort();
+            black_box(sorted_vec);
         })
     });
 }
 
 fn bench_ext_sort_1000_rand(c: &mut Criterion) {
     c.bench_function("bench_ext_sort_1000_rand", |b| {
-        let sorter = ExternalSorter::new();
         b.iter(|| {
+            let sorter = ExternalSorter::new();
             let sorted_iter = sorter
                 .sort((0..1000).map(|_| MyStruct(rand::random())).rev())
                 .unwrap();
-            sorted_iter.sorted_count();
+            black_box(sorted_iter.count());
         })
     });
 }
@@ -82,8 +85,19 @@ fn bench_ext_sort_1000_rand(c: &mut Criterion) {
 fn bench_vec_sort_100_000_sorted(c: &mut Criterion) {
     c.bench_function("bench_vec_sort_100_000_sorted", |b| {
         b.iter(|| {
-            let mut sorted_iter: Vec<MyStruct> = (0..100_000).map(MyStruct).collect();
-            sorted_iter.sort();
+            let mut sorted_vec: Vec<MyStruct> = (0..100_000).map(MyStruct).collect();
+            sorted_vec.sort();
+            black_box(sorted_vec);
+        })
+    });
+}
+
+fn bench_ext_sort_100_000_sorted(c: &mut Criterion) {
+    c.bench_function("bench_ext_sort_100_000_sorted", |b| {
+        b.iter(|| {
+            let sorter = ExternalSorter::new();
+            let sorted_iter = sorter.sort((0..100_000).map(MyStruct)).unwrap();
+            black_box(sorted_iter.count());
         })
     });
 }
@@ -91,8 +105,19 @@ fn bench_vec_sort_100_000_sorted(c: &mut Criterion) {
 fn bench_vec_sort_100_000_rev(c: &mut Criterion) {
     c.bench_function("bench_vec_sort_100_000_rev", |b| {
         b.iter(|| {
-            let mut sorted_iter: Vec<MyStruct> = (0..100_000).map(MyStruct).rev().collect();
-            sorted_iter.sort();
+            let mut sorted_vec: Vec<MyStruct> = (0..100_000).map(MyStruct).rev().collect();
+            sorted_vec.sort();
+            black_box(sorted_vec);
+        })
+    });
+}
+
+fn bench_ext_sort_100_000_rev(c: &mut Criterion) {
+    c.bench_function("bench_ext_sort_100_000_rev", |b| {
+        b.iter(|| {
+            let sorter = ExternalSorter::new();
+            let sorted_iter = sorter.sort((0..100_000).map(MyStruct).rev()).unwrap();
+            black_box(sorted_iter.count());
         })
     });
 }
@@ -100,141 +125,120 @@ fn bench_vec_sort_100_000_rev(c: &mut Criterion) {
 fn bench_vec_sort_100_000_rand(c: &mut Criterion) {
     c.bench_function("bench_vec_sort_100_000_rand", |b| {
         b.iter(|| {
-            let mut sorted_iter: Vec<MyStruct> = (0..100_000)
+            let mut sorted_vec: Vec<MyStruct> = (0..100_000)
                 .map(|_| MyStruct(rand::random()))
                 .rev()
                 .collect();
-            sorted_iter.sort();
-        })
-    });
-}
-
-fn bench_ext_sort_100_000_sorted(c: &mut Criterion) {
-    c.bench_function("bench_ext_sort_100_000_sorted", |b| {
-        let sorter = ExternalSorter::new();
-        b.iter(|| {
-            let sorted_iter = sorter.sort((0..100_000).map(MyStruct)).unwrap();
-            sorted_iter.sorted_count();
-        })
-    });
-}
-
-fn bench_ext_sort_100_000_rev(c: &mut Criterion) {
-    c.bench_function("bench_ext_sort_100_000_rev", |b| {
-        let sorter = ExternalSorter::new();
-        b.iter(|| {
-            let sorted_iter = sorter.sort((0..100_000).map(MyStruct).rev()).unwrap();
-            sorted_iter.sorted_count();
+            sorted_vec.sort();
+            black_box(sorted_vec);
         })
     });
 }
 
 fn bench_ext_sort_100_000_rand(c: &mut Criterion) {
     c.bench_function("bench_ext_sort_100_000_rand", |b| {
-        let sorter = ExternalSorter::new();
         b.iter(|| {
+            let sorter = ExternalSorter::new();
             let sorted_iter = sorter
                 .sort((0..100_000).map(|_| MyStruct(rand::random())).rev())
                 .unwrap();
-            sorted_iter.sorted_count();
+            black_box(sorted_iter.count());
         })
     });
 }
 
-fn bench_ext_sort_1million_max1k_sorted(c: &mut Criterion) {
-    c.bench_function("bench_ext_sort_1million_max1k_sorted", |b| {
-        let sorter = ExternalSorter::new().with_segment_size(1000);
+fn bench_ext_sort_1million_max_10k_sorted(c: &mut Criterion) {
+    c.bench_function("bench_ext_sort_1million_max_10k_sorted", |b| {
         b.iter(|| {
+            let sorter = ExternalSorter::new().with_segment_size(10000);
             let sorted_iter = sorter.sort((0..1_000_000).map(MyStruct)).unwrap();
-            sorted_iter.sorted_count();
+            black_box(sorted_iter.count());
         })
     });
 }
 
-fn bench_ext_sort_1million_max1k_rev(c: &mut Criterion) {
-    c.bench_function("bench_ext_sort_1million_max1k_rev", |b| {
-        let sorter = ExternalSorter::new().with_segment_size(1000);
-
+fn bench_ext_sort_1million_max_10k_sev(c: &mut Criterion) {
+    c.bench_function("bench_ext_sort_1million_max_10k_sev", |b| {
         b.iter(|| {
+            let sorter = ExternalSorter::new().with_segment_size(10000);
             let sorted_iter = sorter.sort((0..1_000_000).map(MyStruct).rev()).unwrap();
-            sorted_iter.sorted_count();
+            black_box(sorted_iter.count());
         })
     });
 }
 
-fn bench_ext_sort_1million_max1k_rand(c: &mut Criterion) {
-    c.bench_function("bench_ext_sort_1million_max1k_rand", |b| {
-        let sorter = ExternalSorter::new().with_segment_size(1000);
+fn bench_ext_sort_1million_max_10k_sand(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Iter1million");
+    group.sample_size(10);
 
+    group.bench_function("bench_ext_sort_1million_max_10k_sand", |b| {
         b.iter(|| {
+            let sorter = ExternalSorter::new().with_segment_size(10000);
             let sorted_iter = sorter
                 .sort((0..1_000_000).map(|_| MyStruct(rand::random())).rev())
                 .unwrap();
-            sorted_iter.sorted_count();
+            black_box(sorted_iter.count());
         })
     });
 }
 
-fn bench_ext_sort_1million_max1k_rand_parallel(c: &mut Criterion) {
-    c.bench_function("bench_ext_sort_1million_max1k_rand_parallel", |b| {
-        let sorter = ExternalSorter::new()
-            .with_segment_size(1000)
-            .with_parallel_sort();
-
+fn bench_ext_sort_1million_max_10k_sand_parallel(c: &mut Criterion) {
+    c.bench_function("bench_ext_sort_1million_max_10k_sand_parallel", |b| {
         b.iter(|| {
+            let sorter = ExternalSorter::new()
+                .with_segment_size(10000)
+                .with_parallel_sort();
+
             let sorted_iter = sorter
                 .sort((0..1_000_000).map(|_| MyStruct(rand::random())).rev())
                 .unwrap();
-            sorted_iter.sorted_count();
+            black_box(sorted_iter.count());
         })
     });
 }
 fn bench_ext_sort_1million_max100k_sorted(c: &mut Criterion) {
     c.bench_function("bench_ext_sort_1million_max100k_sorted", |b| {
-        let sorter = ExternalSorter::new().with_segment_size(100_000);
-
         b.iter(|| {
+            let sorter = ExternalSorter::new().with_segment_size(100_000);
             let sorted_iter = sorter.sort((0..1_000_000).map(MyStruct)).unwrap();
-            sorted_iter.sorted_count();
+            black_box(sorted_iter.count());
         })
     });
 }
 
 fn bench_ext_sort_1million_max100k_rev(c: &mut Criterion) {
     c.bench_function("bench_ext_sort_1million_max100k_rev", |b| {
-        let sorter = ExternalSorter::new().with_segment_size(100_000);
-
         b.iter(|| {
+            let sorter = ExternalSorter::new().with_segment_size(100_000);
             let sorted_iter = sorter.sort((0..1_000_000).map(MyStruct).rev()).unwrap();
-            sorted_iter.sorted_count();
+            black_box(sorted_iter.count());
         })
     });
 }
 
 fn bench_ext_sort_1million_max100k_rand(c: &mut Criterion) {
     c.bench_function("bench_ext_sort_1million_max100k_rand", |b| {
-        let sorter = ExternalSorter::new().with_segment_size(100_000);
-
         b.iter(|| {
+            let sorter = ExternalSorter::new().with_segment_size(100_000);
             let sorted_iter = sorter
                 .sort((0..1_000_000).map(|_| MyStruct(rand::random())).rev())
                 .unwrap();
-            sorted_iter.sorted_count();
+            black_box(sorted_iter.count());
         })
     });
 }
 
 fn bench_ext_sort_1million_max100k_rand_parallel(c: &mut Criterion) {
     c.bench_function("bench_ext_sort_1million_max100k_rand_parallel", |b| {
-        let sorter = ExternalSorter::new()
-            .with_segment_size(100_000)
-            .with_parallel_sort();
-
         b.iter(|| {
+            let sorter = ExternalSorter::new()
+                .with_segment_size(100_000)
+                .with_parallel_sort();
+
             let sorted_iter = sorter
                 .sort((0..1_000_000).map(|_| MyStruct(rand::random())).rev())
                 .unwrap();
-            sorted_iter.sorted_count();
+            black_box(sorted_iter.count());
         })
     });
 }
@@ -243,36 +247,34 @@ fn bench_ext_sort_1million_max100k_rand_parallel(c: &mut Criterion) {
 struct MyStruct(u32);
 
 impl Sortable for MyStruct {
-    fn encode<W: Write>(&self, writer: &mut W) {
-        writer.write_u32::<byteorder::LittleEndian>(self.0).unwrap();
+    fn encode<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        writer.write_u32::<byteorder::LittleEndian>(self.0)?;
+        Ok(())
     }
 
-    fn decode<R: Read>(reader: &mut R) -> Option<MyStruct> {
-        reader
-            .read_u32::<byteorder::LittleEndian>()
-            .ok()
-            .map(MyStruct)
+    fn decode<R: Read>(reader: &mut R) -> std::io::Result<MyStruct> {
+        reader.read_u32::<byteorder::LittleEndian>().map(MyStruct)
     }
 }
 
 criterion_group!(
     benches,
     bench_vec_sort_1000_sorted,
-    bench_vec_sort_1000_rev,
-    bench_vec_sort_1000_rand,
     bench_ext_sort_1000_sorted,
+    bench_vec_sort_1000_rev,
     bench_ext_sort_1000_rev,
+    bench_vec_sort_1000_rand,
     bench_ext_sort_1000_rand,
     bench_vec_sort_100_000_sorted,
-    bench_vec_sort_100_000_rev,
-    bench_vec_sort_100_000_rand,
     bench_ext_sort_100_000_sorted,
+    bench_vec_sort_100_000_rev,
     bench_ext_sort_100_000_rev,
+    bench_vec_sort_100_000_rand,
     bench_ext_sort_100_000_rand,
-    bench_ext_sort_1million_max1k_sorted,
-    bench_ext_sort_1million_max1k_rev,
-    bench_ext_sort_1million_max1k_rand,
-    bench_ext_sort_1million_max1k_rand_parallel,
+    bench_ext_sort_1million_max_10k_sorted,
+    bench_ext_sort_1million_max_10k_sev,
+    bench_ext_sort_1million_max_10k_sand,
+    bench_ext_sort_1million_max_10k_sand_parallel,
     bench_ext_sort_1million_max100k_sorted,
     bench_ext_sort_1million_max100k_rev,
     bench_ext_sort_1million_max100k_rand,
