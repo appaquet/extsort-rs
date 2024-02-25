@@ -38,7 +38,7 @@ where
     parallel: bool,
     tempdir: Option<tempfile::TempDir>,
     count: u64,
-    segments_file: Vec<File>,
+    segment_files: Vec<File>,
     buffer: Vec<T>,
     cmp: F,
 }
@@ -60,7 +60,7 @@ where
             parallel,
             tempdir: None,
             count: 0,
-            segments_file: Vec::new(),
+            segment_files: Vec::new(),
             buffer: Vec::new(),
             cmp,
         }
@@ -94,7 +94,7 @@ where
     pub fn done(mut self) -> Result<SortedIterator<T, F>, Error> {
         // Write any items left in buffer, but only if we had at least 1 segment
         // written. Otherwise we use the buffer itself to iterate from memory
-        let pass_through_queue = if !self.buffer.is_empty() && !self.segments_file.is_empty() {
+        let pass_through_queue = if !self.buffer.is_empty() && !self.segment_files.is_empty() {
             self.sort_and_write_segment()?;
             None
         } else {
@@ -106,7 +106,7 @@ where
         SortedIterator::new(
             self.tempdir,
             pass_through_queue,
-            self.segments_file,
+            self.segment_files,
             self.count,
             self.cmp,
         )
@@ -121,7 +121,7 @@ where
         }
 
         let sort_dir = self.get_sort_dir()?;
-        let segment_path = sort_dir.join(format!("{}", self.segments_file.len()));
+        let segment_path = sort_dir.join(format!("{}", self.segment_files.len()));
         let segment_file = OpenOptions::new()
             .create(true)
             .truncate(true)
@@ -135,7 +135,7 @@ where
         }
 
         let file = buf_writer.into_inner()?;
-        self.segments_file.push(file);
+        self.segment_files.push(file);
 
         Ok(())
     }

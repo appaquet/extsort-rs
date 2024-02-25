@@ -24,7 +24,7 @@ skeptic = "0.13"
 
 [[bench]]
 harness = false
-name = "huge"
+name = "sort"
 
 [profile.bench]
 debug = true

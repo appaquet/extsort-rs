@@ -14,7 +14,7 @@
 
 use std::{
     cmp::Ordering,
-    collections::VecDeque,
+    collections::{BinaryHeap, VecDeque},
     fs::File,
     io::{BufReader, Error, Seek, SeekFrom},
 };
@@ -26,16 +26,30 @@ use crate::Sortable;
 ///
 /// If items could fit into memory buffer, there won't be any disk access and
 /// the iterator will be as fast as a regular `Iterator`.
-pub struct SortedIterator<T: Sortable, F> {
+pub struct SortedIterator<T, F>
+where
+    T: Sortable,
+    F: Fn(&T, &T) -> Ordering + Send + Sync + Clone,
+{
     _tempdir: Option<tempfile::TempDir>,
     pass_through_queue: Option<VecDeque<T>>,
-    segment_files: Vec<BufReader<File>>,
-    next_values: Vec<Option<T>>,
+    segments: Vec<Segment>,
+    heap: BinaryHeap<Item<T, F>>,
     count: u64,
     cmp: F,
 }
 
-impl<T: Sortable, F: Fn(&T, &T) -> Ordering + Send + Sync> SortedIterator<T, F> {
+struct Segment {
+    reader: BufReader<File>,
+    heap_count: usize,
+    done: bool,
+}
+
+impl<T, F> SortedIterator<T, F>
+where
+    T: Sortable,
+    F: Fn(&T, &T) -> Ordering + Send + Sync + Clone,
+{
     pub(crate) fn new(
         tempdir: Option<tempfile::TempDir>,
         pass_through_queue: Option<VecDeque<T>>,
@@ -43,22 +57,24 @@ impl<T: Sortable, F: Fn(&T, &T) -> Ordering + Send + Sync> SortedIterator<T, F> 
         count: u64,
         cmp: F,
     ) -> Result<SortedIterator<T, F>, Error> {
-        for segment in &mut segment_files {
-            segment.seek(SeekFrom::Start(0))?;
+        for segment_file in &mut segment_files {
+            segment_file.seek(SeekFrom::Start(0))?;
         }
 
-        let mut next_values = Vec::with_capacity(segment_files.len());
-        for file in segment_files.iter_mut() {
-            next_values.push(Some(T::decode(file)?));
-        }
-
-        let segment_files = segment_files.into_iter().map(BufReader::new).collect();
+        let segments = segment_files
+            .into_iter()
+            .map(|file| Segment {
+                reader: BufReader::new(file),
+                heap_count: 0,
+                done: false,
+            })
+            .collect();
 
         Ok(SortedIterator {
             _tempdir: tempdir,
             pass_through_queue,
-            segment_files,
-            next_values,
+            segments,
+            heap: BinaryHeap::new(),
             count,
             cmp,
         })
@@ -73,11 +89,47 @@ impl<T: Sortable, F: Fn(&T, &T) -> Ordering + Send + Sync> SortedIterator<T, F> 
     ///
     /// May be 0 if the whole iterator fit in memory buffer.
     pub fn disk_segment_count(&self) -> usize {
-        self.segment_files.len()
+        self.segments.len()
+    }
+
+    /// Fills the heap with the next values from the segments on disk.
+    fn fill_heap(&mut self) -> std::io::Result<()> {
+        for (segment_index, segment) in self.segments.iter_mut().enumerate() {
+            if segment.done {
+                continue;
+            }
+
+            if segment.heap_count == 0 {
+                for _i in 0..20 {
+                    let value = match T::decode(&mut segment.reader) {
+                        Ok(value) => value,
+                        Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
+                            segment.done = true;
+                            continue;
+                        }
+                        Err(err) => return Err(err),
+                    };
+
+                    segment.heap_count += 1;
+
+                    self.heap.push(Item {
+                        segment_index,
+                        value,
+                        cmp: self.cmp.clone(),
+                    });
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
-impl<T: Sortable, F: Fn(&T, &T) -> Ordering> Iterator for SortedIterator<T, F> {
+impl<T, F> Iterator for SortedIterator<T, F>
+where
+    T: Sortable,
+    F: Fn(&T, &T) -> Ordering + Send + Sync + Clone,
+{
     type Item = std::io::Result<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -86,44 +138,73 @@ impl<T: Sortable, F: Fn(&T, &T) -> Ordering> Iterator for SortedIterator<T, F> {
             return ptb.pop_front().map(Ok);
         }
 
-        // otherwise, we iter from segments on disk
-        let mut smallest_idx: Option<usize> = None;
-        {
-            let mut smallest: Option<&T> = None;
-            for idx in 0..self.segment_files.len() {
-                let next_value = self.next_values[idx].as_ref();
-                if next_value.is_none() {
-                    continue;
-                }
-
-                if smallest.is_none()
-                    || (self.cmp)(next_value.unwrap(), smallest.unwrap()) == Ordering::Less
-                {
-                    smallest = Some(next_value.unwrap());
-                    smallest_idx = Some(idx);
-                }
+        if self.heap.is_empty() {
+            if let Err(err) = self.fill_heap() {
+                return Some(Err(err));
             }
         }
 
-        if let Some(idx) = smallest_idx {
-            let file = &mut self.segment_files[idx];
-            let value = self.next_values[idx].take().unwrap();
-
-            match T::decode(file) {
-                Ok(value) => {
-                    self.next_values[idx] = Some(value);
-                }
-                Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
-                    self.next_values[idx] = None;
-                }
-                Err(err) => {
-                    return Some(Err(err));
-                }
-            };
-
-            Some(Ok(value))
-        } else {
-            None
+        if self.heap.is_empty() {
+            return None;
         }
+
+        let item = self.heap.pop().unwrap();
+        let segment = &mut self.segments[item.segment_index];
+        segment.heap_count -= 1;
+
+        if segment.heap_count == 0 {
+            if let Err(err) = self.fill_heap() {
+                return Some(Err(err));
+            }
+        }
+
+        Some(Ok(item.value))
     }
+}
+
+struct Item<T, F>
+where
+    T: Sortable,
+    F: Fn(&T, &T) -> Ordering + Send + Sync,
+{
+    segment_index: usize,
+    value: T,
+    cmp: F,
+}
+
+impl<T, F> PartialOrd for Item<T, F>
+where
+    T: Sortable,
+    F: Fn(&T, &T) -> Ordering + Send + Sync,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<T, F> Ord for Item<T, F>
+where
+    T: Sortable,
+    F: Fn(&T, &T) -> Ordering + Send + Sync,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        (self.cmp)(&self.value, &other.value).reverse()
+    }
+}
+
+impl<T, F> PartialEq for Item<T, F>
+where
+    T: Sortable,
+    F: Fn(&T, &T) -> Ordering + Send + Sync,
+{
+    fn eq(&self, other: &Self) -> bool {
+        (self.cmp)(&self.value, &other.value) == Ordering::Equal
+    }
+}
+
+impl<T, F> Eq for Item<T, F>
+where
+    T: Sortable,
+    F: Fn(&T, &T) -> Ordering + Send + Sync,
+{
 }

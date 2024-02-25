@@ -72,7 +72,7 @@ impl ExternalSorter {
     pub fn sort<T, I>(
         self,
         iterator: I,
-    ) -> Result<SortedIterator<T, impl Fn(&T, &T) -> Ordering + Send + Sync>, Error>
+    ) -> Result<SortedIterator<T, impl Fn(&T, &T) -> Ordering + Send + Sync + Clone>, Error>
     where
         T: Sortable + Ord,
         I: IntoIterator<Item = T>,
@@ -85,7 +85,7 @@ impl ExternalSorter {
         self,
         iterator: I,
         f: F,
-    ) -> Result<SortedIterator<T, impl Fn(&T, &T) -> Ordering + Send + Sync>, Error>
+    ) -> Result<SortedIterator<T, impl Fn(&T, &T) -> Ordering + Send + Sync + Clone>, Error>
     where
         T: Sortable,
         I: IntoIterator<Item = T>,

@@ -147,33 +147,30 @@ fn bench_ext_sort_100_000_rand(c: &mut Criterion) {
     });
 }
 
-fn bench_ext_sort_1million_max_10k_sorted(c: &mut Criterion) {
-    c.bench_function("bench_ext_sort_1million_max_10k_sorted", |b| {
+fn bench_ext_sort_1million_max10k_sorted(c: &mut Criterion) {
+    c.bench_function("bench_ext_sort_1million_max10k_sorted", |b| {
         b.iter(|| {
-            let sorter = ExternalSorter::new().with_segment_size(10000);
+            let sorter = ExternalSorter::new().with_segment_size(10_000);
             let sorted_iter = sorter.sort((0..1_000_000).map(MyStruct)).unwrap();
             black_box(sorted_iter.count());
         })
     });
 }
 
-fn bench_ext_sort_1million_max_10k_sev(c: &mut Criterion) {
-    c.bench_function("bench_ext_sort_1million_max_10k_sev", |b| {
+fn bench_ext_sort_1million_max10k_sev(c: &mut Criterion) {
+    c.bench_function("bench_ext_sort_1million_max10k_sev", |b| {
         b.iter(|| {
-            let sorter = ExternalSorter::new().with_segment_size(10000);
+            let sorter = ExternalSorter::new().with_segment_size(10_000);
             let sorted_iter = sorter.sort((0..1_000_000).map(MyStruct).rev()).unwrap();
             black_box(sorted_iter.count());
         })
     });
 }
 
-fn bench_ext_sort_1million_max_10k_sand(c: &mut Criterion) {
-    let mut group = c.benchmark_group("Iter1million");
-    group.sample_size(10);
-
-    group.bench_function("bench_ext_sort_1million_max_10k_sand", |b| {
+fn bench_ext_sort_1million_max10k_rand(c: &mut Criterion) {
+    c.bench_function("bench_ext_sort_1million_max10k_rand", |b| {
         b.iter(|| {
-            let sorter = ExternalSorter::new().with_segment_size(10000);
+            let sorter = ExternalSorter::new().with_segment_size(10_000);
             let sorted_iter = sorter
                 .sort((0..1_000_000).map(|_| MyStruct(rand::random())).rev())
                 .unwrap();
@@ -182,11 +179,11 @@ fn bench_ext_sort_1million_max_10k_sand(c: &mut Criterion) {
     });
 }
 
-fn bench_ext_sort_1million_max_10k_sand_parallel(c: &mut Criterion) {
-    c.bench_function("bench_ext_sort_1million_max_10k_sand_parallel", |b| {
+fn bench_ext_sort_1million_max10k_rand_parallel(c: &mut Criterion) {
+    c.bench_function("bench_ext_sort_1million_max10k_rand_parallel", |b| {
         b.iter(|| {
             let sorter = ExternalSorter::new()
-                .with_segment_size(10000)
+                .with_segment_size(10_000)
                 .with_parallel_sort();
 
             let sorted_iter = sorter
@@ -271,10 +268,10 @@ criterion_group!(
     bench_ext_sort_100_000_rev,
     bench_vec_sort_100_000_rand,
     bench_ext_sort_100_000_rand,
-    bench_ext_sort_1million_max_10k_sorted,
-    bench_ext_sort_1million_max_10k_sev,
-    bench_ext_sort_1million_max_10k_sand,
-    bench_ext_sort_1million_max_10k_sand_parallel,
+    bench_ext_sort_1million_max10k_sorted,
+    bench_ext_sort_1million_max10k_sev,
+    bench_ext_sort_1million_max10k_rand,
+    bench_ext_sort_1million_max10k_rand_parallel,
     bench_ext_sort_1million_max100k_sorted,
     bench_ext_sort_1million_max100k_rev,
     bench_ext_sort_1million_max100k_rand,
