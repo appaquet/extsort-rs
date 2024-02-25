@@ -22,7 +22,7 @@ use std::{
 
 use rayon::slice::ParallelSliceMut;
 
-use crate::{Sortable, SortedIterator};
+use crate::{ExternalSorterOptions, Sortable, SortedIterator};
 
 /// External sorter that uses a "push" pattern instead of consuming an iterator.
 ///
@@ -33,9 +33,7 @@ where
     T: Sortable,
     F: Fn(&T, &T) -> Ordering + Send + Sync + Clone,
 {
-    segment_size: usize,
-    sort_dir: Option<PathBuf>,
-    parallel: bool,
+    options: ExternalSorterOptions,
     tempdir: Option<tempfile::TempDir>,
     count: u64,
     segment_files: Vec<File>,
@@ -48,16 +46,9 @@ where
     T: Sortable,
     F: Fn(&T, &T) -> Ordering + Send + Sync + Clone,
 {
-    pub(crate) fn new(
-        segment_size: usize,
-        sort_dir: Option<PathBuf>,
-        parallel: bool,
-        cmp: F,
-    ) -> PushExternalSorter<T, F> {
+    pub(crate) fn new(options: crate::ExternalSorterOptions, cmp: F) -> PushExternalSorter<T, F> {
         PushExternalSorter {
-            segment_size,
-            sort_dir,
-            parallel,
+            options,
             tempdir: None,
             count: 0,
             segment_files: Vec::new(),
@@ -84,7 +75,7 @@ where
         self.buffer.push(item);
         self.count += 1;
 
-        if self.buffer.len() > self.segment_size {
+        if self.buffer.len() > self.options.segment_size {
             self.sort_and_write_segment()?;
         }
 
@@ -114,7 +105,7 @@ where
 
     fn sort_and_write_segment(&mut self) -> Result<(), Error> {
         let cmp = self.cmp.clone();
-        if self.parallel {
+        if self.options.parallel {
             self.buffer.par_sort_unstable_by(|a, b| cmp(a, b));
         } else {
             self.buffer.sort_unstable_by(|a, b| cmp(a, b));
@@ -143,17 +134,17 @@ where
     /// We only want to create directory if it's needed (i.e. if the dataset
     /// doesn't fit in memory) to prevent filesystem latency
     fn get_sort_dir(&mut self) -> Result<PathBuf, Error> {
-        if let Some(sort_dir) = self.sort_dir.as_ref() {
+        if let Some(sort_dir) = self.options.sort_dir.as_ref() {
             return Ok(sort_dir.clone());
         }
 
-        self.sort_dir = if let Some(ref sort_dir) = self.sort_dir {
+        self.options.sort_dir = if let Some(ref sort_dir) = self.options.sort_dir {
             Some(sort_dir.to_path_buf())
         } else {
             self.tempdir = Some(tempfile::TempDir::new()?);
             Some(self.tempdir.as_ref().unwrap().path().to_path_buf())
         };
 
-        Ok(self.sort_dir.as_ref().unwrap().clone())
+        Ok(self.options.sort_dir.as_ref().unwrap().clone())
     }
 }

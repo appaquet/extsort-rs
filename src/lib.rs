@@ -78,6 +78,22 @@ pub trait Sortable: Sized + Send {
     fn decode<R: Read>(reader: &mut R) -> std::io::Result<Self>;
 }
 
+pub(crate) struct ExternalSorterOptions {
+    pub segment_size: usize,
+    pub sort_dir: Option<std::path::PathBuf>,
+    pub parallel: bool,
+}
+
+impl Default for ExternalSorterOptions {
+    fn default() -> Self {
+        ExternalSorterOptions {
+            segment_size: 10_000,
+            sort_dir: None,
+            parallel: false,
+        }
+    }
+}
+
 #[cfg(test)]
 pub mod test {
     use std::io::{Read, Result, Write};

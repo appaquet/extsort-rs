@@ -14,7 +14,7 @@
 
 use std::{cmp::Ordering, io::Error, path::PathBuf};
 
-use crate::{iter::SortedIterator, push::PushExternalSorter, Sortable};
+use crate::{iter::SortedIterator, push::PushExternalSorter, ExternalSorterOptions, Sortable};
 
 /// Exposes external sorting (i.e. on disk sorting) capability on arbitrarily
 /// sized iterator, even if the generated content of the iterator doesn't fit in
@@ -25,17 +25,13 @@ use crate::{iter::SortedIterator, push::PushExternalSorter, Sortable};
 /// to remain efficient for all implementations, the crate doesn't handle
 /// serialization, but leaves that to the user.
 pub struct ExternalSorter {
-    segment_size: usize,
-    sort_dir: Option<PathBuf>,
-    parallel: bool,
+    options: ExternalSorterOptions,
 }
 
 impl ExternalSorter {
     pub fn new() -> ExternalSorter {
         ExternalSorter {
-            segment_size: 10000,
-            sort_dir: None,
-            parallel: false,
+            options: ExternalSorterOptions::default(),
         }
     }
 
@@ -48,14 +44,14 @@ impl ExternalSorter {
     /// Using a higher segment size makes sorting faster by leveraging
     /// faster in-memory operations.
     pub fn with_segment_size(mut self, size: usize) -> Self {
-        self.segment_size = size;
+        self.options.segment_size = size;
         self
     }
 
     /// Sets directory in which sorted segments will be written (if it doesn't
     /// fit in memory).
     pub fn with_sort_dir(mut self, path: PathBuf) -> Self {
-        self.sort_dir = Some(path);
+        self.options.sort_dir = Some(path);
         self
     }
 
@@ -64,7 +60,7 @@ impl ExternalSorter {
     /// This may not be needed if the buffer isn't big enough for parallelism to
     /// be gainful over the overhead of multithreading.
     pub fn with_parallel_sort(mut self) -> Self {
-        self.parallel = true;
+        self.options.parallel = true;
         self
     }
 
@@ -102,8 +98,7 @@ impl ExternalSorter {
         I: IntoIterator<Item = T>,
         F: Fn(&T, &T) -> Ordering + Send + Sync + Clone,
     {
-        let mut sorter =
-            PushExternalSorter::new(self.segment_size, self.sort_dir, self.parallel, cmp);
+        let mut sorter = PushExternalSorter::new(self.options, cmp);
         sorter.push_iter(iterator)?;
         sorter.done()
     }
@@ -126,7 +121,7 @@ impl ExternalSorter {
         T: Sortable,
         F: Fn(&T, &T) -> Ordering + Send + Sync + Clone,
     {
-        PushExternalSorter::new(self.segment_size, self.sort_dir, self.parallel, cmp)
+        PushExternalSorter::new(self.options, cmp)
     }
 
     /// Creates a pushed external sorter, which will consume items in a push

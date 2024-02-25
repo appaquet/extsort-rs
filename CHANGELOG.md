@@ -7,18 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0] - 2024-02-23
 
-- Breaking: now expose underlying error via std::io::Result on the iterator and sortable trait
-  - The `Sortable` trait now returns `std::io::Result` on both `encode` and `decode` methods.
-  - The `SortedIterator` iterator now returns `std::io::Result<T>` instead of `T` directly, allowing
-    the underlying error to be propagated.
+- Breaking: The `Sortable` trait now returns `std::io::Result` on both `encode`
+  and `decode` methods, exposing underlying errors.
 
-- Breaking: comparator methods or key extractor requires to be `Clone`. This
-  shouldn't impact most users since closure are `Clone` if they don't capture any
-  variable.
+- Breaking: The `SortedIterator` iterator now returns `std::io::Result<T>`
+  instead of `T` directly, allowing propagation of underlying errors.
 
-- Now exposing a new "pushed" iterator, allowing to push new elements instead of
-  consuming them through an iterator. This is useful when the data is not
-  available as an iterator.
+- Breaking change: The comparator methods or key extractor now require being
+  `Clone`. This change should not affect most users, as closures are `Clone` if
+   they don't capture any variables.
+
+- Added a new "pushed" iterator, which allows pushing new elements instead of
+  consuming them through an iterator. This is particularly useful when the data is
+  not readily available as an iterator.
 
 - Methods accepting iterators now accept `IntoIterator` for flexibility.
 
