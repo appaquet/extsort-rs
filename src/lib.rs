@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The `extsort` crate exposes external sorting (i.e. on disk sorting)
-//! capability on arbitrarily sized iterator, even if the generated content of
+//! The `extsort` crate exposes external sorting (i.e. on-disk sorting)
+//! capability on arbitrarily sized iterators, even if the generated content of
 //! the iterator doesn't fit in memory. Once sorted, it returns a new sorted
 //! iterator.
 //!
 //! In order to remain efficient for all implementations, `extsort` doesn't
-//! handle serialization, but leaves that to the user.
+//! handle serialization but leaves that to the user.
 //!
 //! The sorter can optionally use [`rayon`](https://crates.io/crates/rayon) to
 //! sort the in-memory buffer. It is generally faster when the buffer size is big
@@ -37,13 +37,13 @@
 //! struct MyStruct(u32);
 //!
 //! impl Sortable for MyStruct {
-//!     fn encode<W: Write>(&self, write: &mut W) -> std::io::Result<()> {
-//!         write.write_u32::<byteorder::LittleEndian>(self.0)?;
+//!     fn encode<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
+//!         writer.write_u32::<byteorder::LittleEndian>(self.0)?;
 //!         Ok(())
 //!     }
 //!
-//!     fn decode<R: Read>(read: &mut R) -> std::io::Result<MyStruct> {
-//!         read.read_u32::<byteorder::LittleEndian>()
+//!     fn decode<R: Read>(reader: &mut R) -> std::io::Result<MyStruct> {
+//!         reader.read_u32::<byteorder::LittleEndian>()
 //!             .map(MyStruct)
 //!     }
 //! }

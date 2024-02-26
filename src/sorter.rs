@@ -16,8 +16,8 @@ use std::{cmp::Ordering, io::Error, path::PathBuf};
 
 use crate::{iter::SortedIterator, push::PushExternalSorter, ExternalSorterOptions, Sortable};
 
-/// Exposes external sorting (i.e. on disk sorting) capability on arbitrarily
-/// sized iterator, even if the generated content of the iterator doesn't fit in
+/// Exposes external sorting (i.e. on-disk sorting) capability on arbitrarily
+/// sized iterators, even if the generated content of the iterator doesn't fit in
 /// memory.
 ///
 /// It uses an in-memory buffer sorted and flushed to disk in segment files when
@@ -37,7 +37,7 @@ impl ExternalSorter {
 
     /// Sets the maximum size of each segment in number of sorted items.
     ///
-    /// This number of items needs to fit in memory. While sorting, a
+    /// This number of items needs to fit in memory. While sorting, an
     /// in-memory buffer is used to collect the items to be sorted. Once
     /// it reaches the maximum size, it is sorted and then written to disk.
     ///
@@ -48,7 +48,7 @@ impl ExternalSorter {
         self
     }
 
-    /// Sets directory in which sorted segments will be written (if it doesn't
+    /// Sets the directory in which sorted segments will be written (if they don't
     /// fit in memory).
     pub fn with_sort_dir(mut self, path: PathBuf) -> Self {
         self.options.sort_dir = Some(path);
@@ -58,13 +58,13 @@ impl ExternalSorter {
     /// Uses Rayon to sort the in-memory buffer.
     ///
     /// This may not be needed if the buffer isn't big enough for parallelism to
-    /// be gainful over the overhead of multithreading.
+    /// be beneficial over the overhead of multithreading.
     pub fn with_parallel_sort(mut self) -> Self {
         self.options.parallel = true;
         self
     }
 
-    /// Sorts a given iterator, returning a new iterator with items
+    /// Sorts a given iterator, returning a new iterator with the sorted items.
     pub fn sort<T, I>(
         self,
         iterator: I,
@@ -76,7 +76,7 @@ impl ExternalSorter {
         self.sort_by(iterator, |a, b| a.cmp(b))
     }
 
-    /// Sorts a given iterator with a key extraction function, returning a new iterator with items
+    /// Sorts a given iterator with a key extraction function, returning a new iterator with the sorted items.
     pub fn sort_by_key<T, I, F, K>(
         self,
         iterator: I,
@@ -91,7 +91,7 @@ impl ExternalSorter {
         self.sort_by(iterator, move |a, b| f(a).cmp(&f(b)))
     }
 
-    /// Sorts a given iterator with a comparator function, returning a new iterator with items
+    /// Sorts a given iterator with a comparator function, returning a new iterator with the sorted items.
     pub fn sort_by<T, I, F>(self, iterator: I, cmp: F) -> Result<SortedIterator<T, F>, Error>
     where
         T: Sortable,

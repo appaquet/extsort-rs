@@ -26,7 +26,7 @@ use crate::{ExternalSorterOptions, Sortable, SortedIterator};
 
 /// External sorter that uses a "push" pattern instead of consuming an iterator.
 ///
-/// It is used internally by normal pull iterator (`ExternalSorter`), but can
+/// It is used internally by the normal pull iterator (`ExternalSorter`), but can
 /// also be used directly to sort items in a push pattern.
 pub struct PushExternalSorter<T, F>
 where
@@ -70,7 +70,7 @@ where
         Ok(())
     }
 
-    /// Push a single item into the sorter.
+    /// Pushes a single item into the sorter.
     pub fn push(&mut self, item: T) -> Result<(), Error> {
         self.buffer.push(item);
         self.count += 1;
@@ -83,8 +83,8 @@ where
     }
 
     pub fn done(mut self) -> Result<SortedIterator<T, F>, Error> {
-        // Write any items left in buffer, but only if we had at least 1 segment
-        // written. Otherwise we use the buffer itself to iterate from memory
+        // Write any items left in the buffer, but only if we had at least 1 segment
+        // written. Otherwise, we use the buffer itself to iterate from memory.
         let pass_through_queue = if !self.buffer.is_empty() && !self.segment_files.is_empty() {
             self.sort_and_write_segment()?;
             None
@@ -131,8 +131,8 @@ where
         Ok(())
     }
 
-    /// We only want to create directory if it's needed (i.e. if the dataset
-    /// doesn't fit in memory) to prevent filesystem latency
+    /// We only want to create a directory if it's needed (i.e., if the dataset
+    /// doesn't fit in memory) to prevent filesystem latency.
     fn get_sort_dir(&mut self) -> Result<PathBuf, Error> {
         if let Some(sort_dir) = self.options.sort_dir.as_ref() {
             return Ok(sort_dir.clone());
