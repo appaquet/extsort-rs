@@ -1,17 +1,17 @@
-extsort
+# extsort
+
 [![crates.io](https://img.shields.io/crates/v/extsort.svg)](https://crates.io/crates/extsort)
 [![dependency status](https://deps.rs/repo/github/appaquet/extsort-rs/status.svg)](https://deps.rs/repo/github/appaquet/extsort-rs)
-==========
 
-Exposes external sorting (i.e. on disk sorting) capability on arbitrarily sized iterator, even if the
+Exposes external sorting (i.e. on-disk sorting) capability on arbitrarily sized iterators, even if the
 generated content of the iterator doesn't fit in memory. Once sorted, it returns a new sorted iterator.
 
-In order to remain efficient for all implementations, the crate doesn't handle serialization, but leaves that to the user.
+To remain efficient for all implementations, the crate doesn't handle serialization but leaves that to the user.
 
 The sorter can optionally use [`rayon`](https://crates.io/crates/rayon) to sort the in-memory buffer. It is generally
-faster when the buffer size is big enough for parallelism to have an impact over its overhead.
+faster when the buffer size is big enough for parallelism to have an impact on its overhead.
 
-# Example
+## Example
 
 ```rust
 extern crate extsort;
