@@ -43,7 +43,6 @@ where
     mode: Mode<T, F>,
     count: u64,
     cmp: F,
-    options: ExternalSorterOptions,
 }
 
 enum Mode<T, F>
@@ -106,7 +105,6 @@ where
             mode,
             count,
             cmp,
-            options,
         })
     }
 
