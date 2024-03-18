@@ -24,19 +24,34 @@ use crate::Sortable;
 /// Iterator over sorted items that may have been written to disk during the
 /// sorting process.
 ///
-/// If items could fit into memory buffer, there won't be any disk access and
-/// the iterator will be as fast as a regular `Iterator`.
+/// The iterator operates in 3 modes based on the number of items and segments on disk:
+/// - If the items fit into a memory buffer, the iterator dequeues directly from a sorted VecDeque.
+/// - If there are fewer than 15 segments on disk, the iterator peeks from the
+///   segments and returns the smallest item.  This is faster than using a binary
+///   heap since the cost of peeking over all segments at each iteration is less
+///   than the cost of maintaining a binary heap.
+/// - Otherwise, the iterator uses a binary heap to keep track of the smallest
+///   item from each segment.
 pub struct SortedIterator<T, F>
 where
     T: Sortable,
     F: Fn(&T, &T) -> Ordering + Send + Sync + Clone,
 {
     _tempdir: Option<tempfile::TempDir>,
-    pass_through_queue: Option<VecDeque<T>>,
     segments: Vec<Segment>,
-    heap: BinaryHeap<Item<T, F>>,
+    mode: Mode<T, F>,
     count: u64,
     cmp: F,
+}
+
+enum Mode<T, F>
+where
+    T: Sortable,
+    F: Fn(&T, &T) -> Ordering + Send + Sync + Clone,
+{
+    Passthrough(VecDeque<T>),
+    Heap(BinaryHeap<HeapItem<T, F>>),
+    Peek(Vec<Option<T>>),
 }
 
 struct Segment {
@@ -61,7 +76,7 @@ where
             segment_file.seek(SeekFrom::Start(0))?;
         }
 
-        let segments = segment_files
+        let mut segments: Vec<Segment> = segment_files
             .into_iter()
             .map(|file| Segment {
                 reader: BufReader::new(file),
@@ -70,11 +85,22 @@ where
             })
             .collect();
 
+        let mode = if let Some(queue) = pass_through_queue {
+            Mode::Passthrough(queue)
+        } else if segments.len() < 15 {
+            let mut next_values = Vec::with_capacity(segments.len());
+            for segment in segments.iter_mut() {
+                next_values.push(Some(T::decode(&mut segment.reader)?));
+            }
+            Mode::Peek(next_values)
+        } else {
+            Mode::Heap(BinaryHeap::new())
+        };
+
         Ok(SortedIterator {
             _tempdir: tempdir,
-            pass_through_queue,
             segments,
-            heap: BinaryHeap::new(),
+            mode,
             count,
             cmp,
         })
@@ -92,9 +118,14 @@ where
         self.segments.len()
     }
 
-    /// Fills the heap with the next values from the segments on disk.
-    fn fill_heap(&mut self) -> std::io::Result<()> {
-        for (segment_index, segment) in self.segments.iter_mut().enumerate() {
+    /// In heap mode, fills the heap with the next values from the segments on
+    /// disk.
+    fn fill_heap(
+        heap: &mut BinaryHeap<HeapItem<T, F>>,
+        segments: &mut [Segment],
+        cmp: F,
+    ) -> std::io::Result<()> {
+        for (segment_index, segment) in segments.iter_mut().enumerate() {
             if segment.done {
                 continue;
             }
@@ -112,10 +143,10 @@ where
 
                     segment.heap_count += 1;
 
-                    self.heap.push(Item {
+                    heap.push(HeapItem {
                         segment_index,
                         value,
-                        cmp: self.cmp.clone(),
+                        cmp: cmp.clone(),
                     });
                 }
             }
@@ -133,36 +164,76 @@ where
     type Item = std::io::Result<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // if we have a pass through, we dequeue from it directly
-        if let Some(ptb) = self.pass_through_queue.as_mut() {
-            return ptb.pop_front().map(Ok);
-        }
+        match &mut self.mode {
+            Mode::Passthrough(queue) => queue.pop_front().map(Ok),
+            Mode::Heap(heap) => {
+                if heap.is_empty() {
+                    if let Err(err) = Self::fill_heap(heap, &mut self.segments, self.cmp.clone()) {
+                        return Some(Err(err));
+                    }
+                }
 
-        if self.heap.is_empty() {
-            if let Err(err) = self.fill_heap() {
-                return Some(Err(err));
+                if heap.is_empty() {
+                    return None;
+                }
+
+                let item = heap.pop().unwrap();
+                let segment = &mut self.segments[item.segment_index];
+                segment.heap_count -= 1;
+
+                if segment.heap_count == 0 {
+                    if let Err(err) = Self::fill_heap(heap, &mut self.segments, self.cmp.clone()) {
+                        return Some(Err(err));
+                    }
+                }
+
+                Some(Ok(item.value))
+            }
+            Mode::Peek(next_values) => {
+                // otherwise, we iter from segments on disk
+                let mut smallest_idx: Option<usize> = None;
+                {
+                    let mut smallest: Option<&T> = None;
+                    for (idx, next_value) in next_values.iter().enumerate() {
+                        let Some(next_value) = next_value else {
+                            continue;
+                        };
+
+                        if smallest.is_none()
+                            || (self.cmp)(next_value, smallest.unwrap()) == Ordering::Less
+                        {
+                            smallest = Some(next_value);
+                            smallest_idx = Some(idx);
+                        }
+                    }
+                }
+
+                if let Some(idx) = smallest_idx {
+                    let segment = &mut self.segments[idx];
+                    let value = next_values[idx].take().unwrap();
+
+                    match T::decode(&mut segment.reader) {
+                        Ok(value) => {
+                            next_values[idx] = Some(value);
+                        }
+                        Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => {
+                            next_values[idx] = None;
+                        }
+                        Err(err) => {
+                            return Some(Err(err));
+                        }
+                    };
+
+                    Some(Ok(value))
+                } else {
+                    None
+                }
             }
         }
-
-        if self.heap.is_empty() {
-            return None;
-        }
-
-        let item = self.heap.pop().unwrap();
-        let segment = &mut self.segments[item.segment_index];
-        segment.heap_count -= 1;
-
-        if segment.heap_count == 0 {
-            if let Err(err) = self.fill_heap() {
-                return Some(Err(err));
-            }
-        }
-
-        Some(Ok(item.value))
     }
 }
 
-struct Item<T, F>
+struct HeapItem<T, F>
 where
     T: Sortable,
     F: Fn(&T, &T) -> Ordering + Send + Sync,
@@ -172,7 +243,7 @@ where
     cmp: F,
 }
 
-impl<T, F> PartialOrd for Item<T, F>
+impl<T, F> PartialOrd for HeapItem<T, F>
 where
     T: Sortable,
     F: Fn(&T, &T) -> Ordering + Send + Sync,
@@ -182,7 +253,7 @@ where
     }
 }
 
-impl<T, F> Ord for Item<T, F>
+impl<T, F> Ord for HeapItem<T, F>
 where
     T: Sortable,
     F: Fn(&T, &T) -> Ordering + Send + Sync,
@@ -192,7 +263,7 @@ where
     }
 }
 
-impl<T, F> PartialEq for Item<T, F>
+impl<T, F> PartialEq for HeapItem<T, F>
 where
     T: Sortable,
     F: Fn(&T, &T) -> Ordering + Send + Sync,
@@ -202,7 +273,7 @@ where
     }
 }
 
-impl<T, F> Eq for Item<T, F>
+impl<T, F> Eq for HeapItem<T, F>
 where
     T: Sortable,
     F: Fn(&T, &T) -> Ordering + Send + Sync,
