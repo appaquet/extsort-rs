@@ -25,8 +25,9 @@ use crate::Sortable;
 /// sorting process.
 ///
 /// The iterator operates in 3 modes based on the number of items and segments on disk:
-/// - If the items fit into a memory buffer, the iterator dequeues directly from a sorted VecDeque.
-/// - If there are fewer than 15 segments on disk, the iterator peeks from the
+/// - If the items fit into a memory buffer, the iterator dequeues directly from
+///   a sorted VecDeque.
+/// - If there aren't a lot of segments on disk, the iterator peeks from the
 ///   segments and returns the smallest item.  This is faster than using a binary
 ///   heap since the cost of peeking over all segments at each iteration is less
 ///   than the cost of maintaining a binary heap.

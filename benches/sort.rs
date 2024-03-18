@@ -193,6 +193,7 @@ fn bench_ext_sort_1million_max10k_rand_parallel(c: &mut Criterion) {
         })
     });
 }
+
 fn bench_ext_sort_1million_max100k_sorted(c: &mut Criterion) {
     c.bench_function("bench_ext_sort_1million_max100k_sorted", |b| {
         b.iter(|| {
