@@ -63,7 +63,7 @@ fn bench_vec_sort_1000_rand(c: &mut Criterion) {
     c.bench_function("bench_vec_sort_1000_rand", |b| {
         b.iter(|| {
             let mut sorted_vec: Vec<MyStruct> =
-                (0..1000).map(|_| MyStruct(rand::random())).rev().collect();
+                (0..1000).map(|_| MyStruct(rand::random())).collect();
             sorted_vec.sort();
             black_box(sorted_vec);
         })
@@ -75,7 +75,7 @@ fn bench_ext_sort_1000_rand(c: &mut Criterion) {
         b.iter(|| {
             let sorter = ExternalSorter::new();
             let sorted_iter = sorter
-                .sort((0..1000).map(|_| MyStruct(rand::random())).rev())
+                .sort((0..1000).map(|_| MyStruct(rand::random())))
                 .unwrap();
             black_box(sorted_iter.count());
         })
@@ -125,10 +125,8 @@ fn bench_ext_sort_100_000_rev(c: &mut Criterion) {
 fn bench_vec_sort_100_000_rand(c: &mut Criterion) {
     c.bench_function("bench_vec_sort_100_000_rand", |b| {
         b.iter(|| {
-            let mut sorted_vec: Vec<MyStruct> = (0..100_000)
-                .map(|_| MyStruct(rand::random()))
-                .rev()
-                .collect();
+            let mut sorted_vec: Vec<MyStruct> =
+                (0..100_000).map(|_| MyStruct(rand::random())).collect();
             sorted_vec.sort();
             black_box(sorted_vec);
         })
@@ -140,7 +138,7 @@ fn bench_ext_sort_100_000_rand(c: &mut Criterion) {
         b.iter(|| {
             let sorter = ExternalSorter::new();
             let sorted_iter = sorter
-                .sort((0..100_000).map(|_| MyStruct(rand::random())).rev())
+                .sort((0..100_000).map(|_| MyStruct(rand::random())))
                 .unwrap();
             black_box(sorted_iter.count());
         })
@@ -172,7 +170,7 @@ fn bench_ext_sort_1million_max10k_rand(c: &mut Criterion) {
         b.iter(|| {
             let sorter = ExternalSorter::new().with_segment_size(10_000);
             let sorted_iter = sorter
-                .sort((0..1_000_000).map(|_| MyStruct(rand::random())).rev())
+                .sort((0..1_000_000).map(|_| MyStruct(rand::random())))
                 .unwrap();
             black_box(sorted_iter.count());
         })
@@ -187,7 +185,7 @@ fn bench_ext_sort_1million_max10k_rand_parallel(c: &mut Criterion) {
                 .with_parallel_sort();
 
             let sorted_iter = sorter
-                .sort((0..1_000_000).map(|_| MyStruct(rand::random())).rev())
+                .sort((0..1_000_000).map(|_| MyStruct(rand::random())))
                 .unwrap();
             black_box(sorted_iter.count());
         })
@@ -219,7 +217,7 @@ fn bench_ext_sort_1million_max100k_rand(c: &mut Criterion) {
         b.iter(|| {
             let sorter = ExternalSorter::new().with_segment_size(100_000);
             let sorted_iter = sorter
-                .sort((0..1_000_000).map(|_| MyStruct(rand::random())).rev())
+                .sort((0..1_000_000).map(|_| MyStruct(rand::random())))
                 .unwrap();
             black_box(sorted_iter.count());
         })
@@ -234,7 +232,7 @@ fn bench_ext_sort_1million_max100k_rand_parallel(c: &mut Criterion) {
                 .with_parallel_sort();
 
             let sorted_iter = sorter
-                .sort((0..1_000_000).map(|_| MyStruct(rand::random())).rev())
+                .sort((0..1_000_000).map(|_| MyStruct(rand::random())))
                 .unwrap();
             black_box(sorted_iter.count());
         })

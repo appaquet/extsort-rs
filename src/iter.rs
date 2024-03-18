@@ -19,7 +19,7 @@ use std::{
     io::{BufReader, Error, Seek, SeekFrom},
 };
 
-use crate::Sortable;
+use crate::{ExternalSorterOptions, Sortable};
 
 /// Iterator over sorted items that may have been written to disk during the
 /// sorting process.
@@ -43,6 +43,7 @@ where
     mode: Mode<T, F>,
     count: u64,
     cmp: F,
+    options: ExternalSorterOptions,
 }
 
 enum Mode<T, F>
@@ -72,6 +73,7 @@ where
         mut segment_files: Vec<File>,
         count: u64,
         cmp: F,
+        options: ExternalSorterOptions,
     ) -> Result<SortedIterator<T, F>, Error> {
         for segment_file in &mut segment_files {
             segment_file.seek(SeekFrom::Start(0))?;
@@ -88,7 +90,7 @@ where
 
         let mode = if let Some(queue) = pass_through_queue {
             Mode::Passthrough(queue)
-        } else if segments.len() < 15 {
+        } else if segments.len() < options.heap_iter_segment_count {
             let mut next_values = Vec::with_capacity(segments.len());
             for segment in segments.iter_mut() {
                 next_values.push(Some(T::decode(&mut segment.reader)?));
@@ -104,6 +106,7 @@ where
             mode,
             count,
             cmp,
+            options,
         })
     }
 

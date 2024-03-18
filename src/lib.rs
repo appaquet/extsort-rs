@@ -78,8 +78,10 @@ pub trait Sortable: Sized + Send {
     fn decode<R: Read>(reader: &mut R) -> std::io::Result<Self>;
 }
 
+#[derive(Clone)]
 pub(crate) struct ExternalSorterOptions {
     pub segment_size: usize,
+    pub heap_iter_segment_count: usize,
     pub sort_dir: Option<std::path::PathBuf>,
     pub parallel: bool,
 }
@@ -88,6 +90,7 @@ impl Default for ExternalSorterOptions {
     fn default() -> Self {
         ExternalSorterOptions {
             segment_size: 10_000,
+            heap_iter_segment_count: 20,
             sort_dir: None,
             parallel: false,
         }

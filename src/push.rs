@@ -100,6 +100,7 @@ where
             self.segment_files,
             self.count,
             self.cmp,
+            self.options.clone(),
         )
     }
 

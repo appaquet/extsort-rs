@@ -43,6 +43,8 @@ impl ExternalSorter {
     ///
     /// Using a higher segment size makes sorting faster by leveraging
     /// faster in-memory operations.
+    ///
+    /// Default is 10000
     pub fn with_segment_size(mut self, size: usize) -> Self {
         self.options.segment_size = size;
         self
@@ -50,6 +52,8 @@ impl ExternalSorter {
 
     /// Sets the directory in which sorted segments will be written (if they don't
     /// fit in memory).
+    ///
+    /// Default is to use the system's temporary directory.
     pub fn with_sort_dir(mut self, path: PathBuf) -> Self {
         self.options.sort_dir = Some(path);
         self
@@ -59,8 +63,22 @@ impl ExternalSorter {
     ///
     /// This may not be needed if the buffer isn't big enough for parallelism to
     /// be beneficial over the overhead of multithreading.
+    ///
+    /// Default is false
     pub fn with_parallel_sort(mut self) -> Self {
         self.options.parallel = true;
+        self
+    }
+
+    /// From how many segments on disk should the iterator switch to using a
+    /// binary heap to keep track of the smallest item from each segment.
+    ///
+    /// For a small amount of segments, it is faster to peek over all segments
+    /// at each iteration than to maintain a binary heap.
+    ///
+    /// Default is 20
+    pub fn with_heap_iter_segment_count(mut self, count: usize) -> Self {
+        self.options.heap_iter_segment_count = count;
         self
     }
 
