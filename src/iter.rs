@@ -28,9 +28,9 @@ use crate::{ExternalSorterOptions, Sortable};
 /// - If the items fit into a memory buffer, the iterator dequeues directly from
 ///   a sorted VecDeque.
 /// - If there aren't a lot of segments on disk, the iterator peeks from the
-///   segments and returns the smallest item.  This is faster than using a binary
+///   segments and returns the smallest item. This is faster than using a binary
 ///   heap since the cost of peeking over all segments at each iteration is less
-///   than the cost of maintaining a binary heap.
+///   than the cost of maintaining the binary heap.
 /// - Otherwise, the iterator uses a binary heap to keep track of the smallest
 ///   item from each segment.
 pub struct SortedIterator<T, F>
