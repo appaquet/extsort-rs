@@ -16,7 +16,7 @@ rayon = "1.8"
 [dev-dependencies]
 byteorder = "1.5"
 skeptic = "0.13"
-rand = "0.8"
+rand = "0.9"
 criterion = "0.5"
 
 [build-dependencies]
